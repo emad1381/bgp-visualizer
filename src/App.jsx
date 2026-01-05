@@ -8,7 +8,7 @@ import { Activity, Zap, Sun, Moon } from 'lucide-react';
 import SearchBar from './components/SearchBar/SearchBar';
 import BGPGraph from './components/BGPGraph/BGPGraph';
 import InfoPanel from './components/InfoPanel/InfoPanel';
-import { getCompleteBGPData, generateGraphData } from './services/bgpService';
+import { getCompleteBGPData, generateGraphData, fetchASUpstreams } from './services/bgpService';
 import './App.css';
 
 export default function App() {
@@ -16,6 +16,11 @@ export default function App() {
   const [error, setError] = useState(null);
   const [bgpData, setBgpData] = useState(null);
   const [graphData, setGraphData] = useState(null);
+  const [panelCollapsed, setPanelCollapsed] = useState(false); // Panel collapse state
+
+  // State for interactive node exploration
+  const [exploredNodes, setExploredNodes] = useState(new Set());
+  const [loadingNodes, setLoadingNodes] = useState(new Set());
   const [theme, setTheme] = useState(() => {
     // Check localStorage or system preference
     const saved = localStorage.getItem('bgp-theme');
@@ -34,14 +39,34 @@ export default function App() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  // Handle IP search
-  const handleSearch = useCallback(async (ip) => {
+  // Handle IP/Domain search
+  const handleSearch = useCallback(async (input) => {
     setIsLoading(true);
     setError(null);
 
     try {
+      let ipAddress = input.trim();
+
+      // Import validation functions
+      const { validateIP, validateDomain, resolveDomainToIP, getCompleteBGPData, generateGraphData } =
+        await import('./services/bgpService');
+
+      // Check if input is a domain name
+      const ipValidation = validateIP(ipAddress);
+
+      if (!ipValidation.valid) {
+        // Try as domain name
+        if (validateDomain(ipAddress)) {
+          // Resolve domain to IP
+          ipAddress = await resolveDomainToIP(ipAddress);
+          console.log(`Resolved ${input} to ${ipAddress}`);
+        } else {
+          throw new Error('Invalid IP address or domain name');
+        }
+      }
+
       // Fetch complete BGP data
-      const data = await getCompleteBGPData(ip);
+      const data = await getCompleteBGPData(ipAddress);
       setBgpData(data);
 
       // Generate graph data
@@ -56,6 +81,107 @@ export default function App() {
       setIsLoading(false);
     }
   }, []);
+
+  // Handle node click for recursive upstream exploration
+  const handleNodeClick = useCallback(async (event, node) => {
+    // Only handle AS and Upstream nodes
+    if (!['asNode', 'upstreamNode'].includes(node.type)) {
+      return;
+    }
+
+    const asn = node.data.asn;
+
+    // Check if already explored or currently loading
+    if (exploredNodes.has(asn) || loadingNodes.has(asn)) {
+      console.log(`AS${asn} already explored or loading`);
+      return;
+    }
+
+    console.log(`Fetching upstreams for AS${asn}...`);
+
+    // Mark as loading
+    setLoadingNodes(prev => new Set([...prev, asn]));
+
+    try {
+      // Fetch upstreams for this ASN
+      const upstreams = await fetchASUpstreams(asn);
+
+      if (upstreams.length === 0) {
+        console.log(`No upstreams found for AS${asn}`);
+        setExploredNodes(prev => new Set([...prev, asn]));
+        setLoadingNodes(prev => {
+          const updated = new Set(prev);
+          updated.delete(asn);
+          return updated;
+        });
+        return;
+      }
+
+      console.log(`Found ${upstreams.length} upstreams for AS${asn}`);
+
+      // Calculate positions for new nodes
+      const currentNodePos = node.position;
+      const newNodes = [];
+      const newEdges = [];
+
+      upstreams.forEach((upstream, index) => {
+        const upstreamNodeId = `upstream-${upstream.asn}-from-${asn}`;
+
+        // Position new nodes above the clicked node
+        const yOffset = 150 + (index * 140);
+        const xOffset = (index - upstreams.length / 2) * 100;
+
+        newNodes.push({
+          id: upstreamNodeId,
+          type: 'upstreamNode',
+          position: {
+            x: currentNodePos.x + xOffset,
+            y: currentNodePos.y - yOffset,
+          },
+          data: {
+            asn: upstream.asn,
+            name: upstream.name || `AS${upstream.asn}`,
+            countryCode: upstream.countryCode, // Already includes fallback from fetchASUpstreams
+            isPrimary: upstream.isPrimary || false,
+            isBackup: upstream.isBackup || false,
+            isTier1: upstream.isTier1 || false,
+          },
+        });
+
+        // Add edge from clicked node to new upstream
+        newEdges.push({
+          id: `${node.id}-to-${upstreamNodeId}`,
+          source: node.id,
+          target: upstreamNodeId,
+          type: 'smoothstep',
+          animated: true,
+          style: { stroke: '#10b981', strokeWidth: 2 },
+          label: 'Upstream',
+          labelStyle: { fill: '#10b981', fontSize: 10 },
+          labelBgStyle: { fill: '#0a0a10', fillOpacity: 0.8 },
+        });
+      });
+
+      // Add new nodes and edges to graph
+      setGraphData(prev => ({
+        nodes: [...prev.nodes, ...newNodes],
+        edges: [...prev.edges, ...newEdges],
+      }));
+
+      // Mark as explored
+      setExploredNodes(prev => new Set([...prev, asn]));
+
+    } catch (error) {
+      console.error(`Error fetching upstreams for AS${asn}:`, error);
+    } finally {
+      // Remove from loading
+      setLoadingNodes(prev => {
+        const updated = new Set(prev);
+        updated.delete(asn);
+        return updated;
+      });
+    }
+  }, [exploredNodes, loadingNodes]);
 
   return (
     <div className="app">
@@ -112,7 +238,7 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className="app-main">
+      <main className={`app-main ${panelCollapsed ? 'panel-collapsed' : ''}`}>
         {/* Error State */}
         {error && (
           <div className="app-error">
@@ -141,22 +267,21 @@ export default function App() {
               <span className="app-loading-text">Fetching BGP Data...</span>
             </div>
           ) : (
-            <BGPGraph graphData={graphData} />
+            <BGPGraph
+              graphData={graphData}
+              onNodeClick={handleNodeClick}
+              loadingNodes={loadingNodes}
+            />
           )}
         </div>
 
         {/* Info Panel */}
-        <InfoPanel data={bgpData} />
+        <InfoPanel
+          data={bgpData}
+          panelCollapsed={panelCollapsed}
+          onTogglePanel={setPanelCollapsed}
+        />
       </main>
-
-      {/* Footer */}
-      <footer className="app-footer">
-        <div className="app-footer-content">
-          <span>© 2024 BGP Visualizer</span>
-          <span className="app-footer-divider">•</span>
-          <span>Built with React & React Flow</span>
-        </div>
-      </footer>
     </div>
   );
 }

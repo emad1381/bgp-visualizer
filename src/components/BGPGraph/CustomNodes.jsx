@@ -67,8 +67,10 @@ export const ASNode = memo(({ data }) => {
         <div className={`node-as ${data.isPrimary ? 'node-as-primary' : ''}`}>
             <Handle type="target" position={Position.Bottom} />
             <div className="node-as-header">
-                <Server size={18} />
-                <span className="node-as-number">AS{data.asn}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <Server size={18} />
+                    <span className="node-as-number">AS{data.asn}</span>
+                </div>
                 {data.countryCode && (
                     <span className="node-as-flag">
                         <FlagIcon code={data.countryCode} size={16} />
@@ -76,8 +78,8 @@ export const ASNode = memo(({ data }) => {
                 )}
             </div>
             <div className="node-as-body">
-                <span className="node-as-name">{data.name}</span>
-                {data.description && (
+                <span className="node-as-name">{data.name || `AS${data.asn}`}</span>
+                {data.description && data.description !== data.name && (
                     <span className="node-as-desc">{data.description}</span>
                 )}
             </div>
@@ -110,19 +112,10 @@ export const UpstreamNode = memo(({ data }) => {
             <Handle type="target" position={Position.Bottom} />
             <Handle type="source" position={Position.Top} />
 
-            {/* Country Flag - Top Right Corner */}
-            {data.countryCode && (
-                <span className="node-upstream-flag">
-                    <FlagIcon code={data.countryCode} size={16} />
-                </span>
-            )}
-
-            <div className="node-upstream-inner">
-                <div className="node-upstream-icon">
-                    <Network size={16} />
-                </div>
-                <div className="node-upstream-content">
-                    <div className="node-upstream-header">
+            {/* Country Flag - Flex Layout */}
+            <div className="node-upstream-content">
+                <div className="node-upstream-header">
+                    <div>
                         <span className="node-upstream-label">
                             {isTier1 ? '🌐 Tier-1' :
                                 isPrimary ? '★ Primary' :
@@ -133,9 +126,14 @@ export const UpstreamNode = memo(({ data }) => {
                             <span className="node-upstream-badge node-upstream-badge-prepend">PREPEND</span>
                         )}
                     </div>
-                    <span className="node-upstream-asn">AS{data.asn}</span>
-                    <span className="node-upstream-name">{data.name}</span>
+                    {data.countryCode && (
+                        <span className="node-upstream-flag">
+                            <FlagIcon code={data.countryCode} size={16} />
+                        </span>
+                    )}
                 </div>
+                <span className="node-upstream-asn">AS{data.asn}</span>
+                {data.name && <span className="node-upstream-name">{data.name}</span>}
             </div>
         </div>
     );
@@ -149,21 +147,22 @@ UpstreamNode.displayName = 'UpstreamNode';
 export const PeerNode = memo(({ data }) => {
     return (
         <div className="node-peer">
+            <Handle type="source" position={Position.Left} />
             <Handle type="target" position={Position.Right} />
 
-            {/* Country Flag - Top Right */}
-            {data.countryCode && (
-                <span className="node-peer-flag">
-                    <FlagIcon code={data.countryCode} size={14} />
-                </span>
-            )}
-
             <div className="node-peer-inner">
-                <Users size={14} />
-                <div className="node-peer-content">
-                    <span className="node-peer-asn">AS{data.asn}</span>
-                    <span className="node-peer-name">{data.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <Users size={14} />
+                    <div className="node-peer-content">
+                        <span className="node-peer-asn">AS{data.asn}</span>
+                        <span className="node-peer-name">{data.name}</span>
+                    </div>
                 </div>
+                {data.countryCode && (
+                    <span className="node-peer-flag">
+                        <FlagIcon code={data.countryCode} size={14} />
+                    </span>
+                )}
             </div>
         </div>
     );

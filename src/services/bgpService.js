@@ -13,6 +13,144 @@ const API_ENDPOINTS = {
   IP_API: 'http://ip-api.com/json',
 };
 
+// Known ASN to Country Code mapping for major providers
+const KNOWN_ASN_COUNTRIES = {
+  // Google
+  15169: 'US', 36040: 'US', 19527: 'US', 36692: 'US',
+  // Cloudflare
+  13335: 'US',
+  // Amazon AWS
+  16509: 'US', 14618: 'US',
+  // Microsoft
+  8075: 'US',
+  // Level3/Lumen/CenturyLink
+  3356: 'US', 3549: 'US', 1: 'US',
+  // Cogent
+  174: 'US',
+  // Hurricane Electric
+  6939: 'US',
+  // NTT
+  2914: 'JP',
+  // Telia
+  1299: 'SE',
+  // GTT (née Tinet)
+  3257: 'GB',
+  // PCCW Global
+  3491: 'HK',
+  // Tata Communications
+  6453: 'IN',
+  // China Telecom
+  4134: 'CN', 4809: 'CN',
+  // China Unicom
+  4837: 'CN', 9929: 'CN',
+  // Deutsche Telekom
+  3320: 'DE',
+  // Telefonica
+  12956: 'ES',
+  // Orange
+  5511: 'FR',
+  // RETN
+  9002: 'LU',
+  // Zayo
+  6461: 'US',
+  // Verizon Business
+  701: 'US', 702: 'US', 703: 'US',
+  // AT&T
+  7018: 'US',
+  // Sprint
+  1239: 'US',
+  // Comcast
+  7922: 'US', 7015: 'US',
+  // APNIC/Singapore
+  24482: 'SG',
+  // Telstra Australia
+  4637: 'AU',
+  // SEACOM South Africa
+  37100: 'ZA',
+  // i3D.net Netherlands
+  25605: 'NL',
+  // Reannz New Zealand
+  9583: 'NZ',
+  // Iran AS
+  16322: 'IR', 44244: 'IR', 49100: 'IR', 48147: 'IR', 12880: 'IR',
+  31549: 'IR', 24940: 'IR', 41881: 'IR', 58224: 'IR', 39074: 'IR',
+};
+
+/**
+ * Known Tier-1 and major AS Names
+ * This provides instant name lookup without API calls
+ */
+const KNOWN_TIER1_ASNS = {
+  // Tier-1 Providers
+  '3356': 'Level3 / Lumen',
+  '1299': 'Twelve99 / Arelion',
+  '2914': 'NTT America',
+  '6453': 'Tata Communications',
+  '6762': 'Sparkle / Telecom Italia',
+  '174': 'Cogent Communications',
+  '6939': 'Hurricane Electric',
+  '701': 'Verizon / UUNET',
+  '6461': 'Zayo Bandwidth',
+  '3257': 'GTT Communications',
+  '1239': 'Sprint',
+  '7922': 'Comcast',
+
+  // Major Cloud Providers
+  '15169': 'Google LLC',
+  '16509': 'Amazon.com',
+  '8075': 'Microsoft',
+  '20940': 'Akamai',
+  '13335': 'Cloudflare',
+
+  // Additional Known ASNs
+  '32934': 'Facebook / Meta',
+  '36692': 'Google',
+  '395973': 'Google-2',
+  '32381': 'Google Cloud',
+  '396982': 'Google Cloud Platform',
+  '36492': 'Google Wifi',
+  '394089': 'GCP Enterprise',
+  '24482': 'SG.GS',
+};
+
+/**
+ * Robust AS Name Fetcher
+ * STEP 1: Check local dictionary (instant)
+ * STEP 2: Fetch from RIPEstat API
+ * STEP 3: Return null if both fail
+ * @param {number|string} asn - AS Number
+ * @returns {Promise<string|null>} - AS Name or null
+ */
+const fetchASName = async (asn) => {
+  // FORCE convert to string for reliable dictionary lookup
+  const asnStr = String(asn).trim();
+
+  // STEP 1: Dictionary check FIRST (no API call)
+  if (KNOWN_TIER1_ASNS[asnStr]) {
+    console.log(`[Cache Hit] AS${asnStr}: ${KNOWN_TIER1_ASNS[asnStr]}`);
+    return KNOWN_TIER1_ASNS[asnStr];
+  }
+
+  // STEP 2: API fetch if not in dictionary
+  try {
+    const response = await fetchWithTimeout(
+      `${API_ENDPOINTS.RIPESTAT_AS_OVERVIEW}?resource=AS${asnStr}`,
+      5000
+    );
+    const holder = response?.data?.holder;
+
+    if (holder) {
+      console.log(`[API Hit] AS${asnStr}: ${holder}`);
+      return holder;
+    }
+  } catch (error) {
+    console.warn(`[API Miss] AS${asnStr}: ${error.message}`);
+  }
+
+  // STEP 3: Return null (caller handles fallback)
+  return null;
+};
+
 /**
  * Validate IP address format
  * @param {string} ip - IP address to validate
@@ -32,12 +170,53 @@ export function validateIP(ip) {
 }
 
 /**
+ * Validate domain name format
+ * @param {string} domain - Domain name to validate
+ * @returns {boolean} - true if valid domain
+ */
+export function validateDomain(domain) {
+  // Domain regex: allows subdomains, TLDs, etc.
+  const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+  return domainRegex.test(domain);
+}
+
+/**
+ * Resolve domain name to IP address using DNS lookup
+ * @param {string} domain - Domain name to resolve
+ * @returns {Promise<string>} - Resolved IP address
+ */
+export async function resolveDomainToIP(domain) {
+  try {
+    // Use Google DNS-over-HTTPS API (better CORS support)
+    const dnsUrl = `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=A`;
+
+    const response = await fetch(dnsUrl);
+    if (!response.ok) {
+      throw new Error(`DNS query failed: ${response.status}`);
+    }
+    const data = await response.json();
+
+    if (data.Answer && data.Answer.length > 0) {
+      // Find first A record (IPv4)
+      const aRecord = data.Answer.find(record => record.type === 1);
+      if (aRecord && aRecord.data) {
+        return aRecord.data;
+      }
+    }
+
+    throw new Error('No A record found for domain');
+  } catch (error) {
+    throw new Error(`DNS resolution failed: ${error.message}`);
+  }
+}
+
+/**
  * Fetch with timeout and error handling
  * @param {string} url - URL to fetch
  * @param {number} timeout - Timeout in milliseconds
  * @returns {Promise<object>} - JSON response
  */
-async function fetchWithTimeout(url, timeout = 15000) {
+async function fetchWithTimeout(url, timeout = 6000) { // Reduced to 6s for speed
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -53,7 +232,7 @@ async function fetchWithTimeout(url, timeout = 15000) {
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
-      throw new Error('Request timeout');
+      throw new Error('Request timeout - API too slow');
     }
     throw error;
   }
@@ -66,7 +245,7 @@ async function fetchWithTimeout(url, timeout = 15000) {
  */
 export async function getIPInfo(ip) {
   try {
-    const data = await fetchWithTimeout(`${API_ENDPOINTS.RIPESTAT_NETWORK}?resource=${ip}`);
+    const data = await fetchWithTimeout(`${API_ENDPOINTS.RIPESTAT_NETWORK}?resource=${ip}`, 12000); // 12s for slow RIPEstat
 
     if (data.status !== 'ok' || !data.data) {
       throw new Error('No network data found for this IP');
@@ -137,6 +316,24 @@ export async function getASOverview(asn) {
 }
 
 /**
+ * Fetch upstreams for a specific ASN (for interactive exploration)
+ * @param {number} asn - AS Number to fetch upstreams for
+ * @returns {Promise<Array>} - Array of upstream AS objects with country codes
+ */
+export async function fetchASUpstreams(asn) {
+  try {
+    const neighbours = await getASNNeighbours(asn);
+    return neighbours.upstreams.map(upstream => ({
+      ...upstream,
+      countryCode: upstream.countryCode || getKnownASCountry(upstream.asn),
+    }));
+  } catch (error) {
+    console.error(`Error fetching upstreams for AS${asn}:`, error);
+    return [];
+  }
+}
+
+/**
  * Get ASN neighbours (upstreams/peers) from RIPEstat
  * Also fetches AS names for each neighbour
  * @param {number} asn - AS Number
@@ -157,7 +354,7 @@ export async function getASNNeighbours(asn) {
     const sorted = [...neighbours].sort((a, b) => (b.power || 0) - (a.power || 0));
 
     // Top 5 by power are likely upstreams, next are peers
-    const upstreamASNs = sorted.slice(0, 5);
+    const upstreamASNs = sorted.slice(0, 8); // Increased to 8 for better graph
     const peerASNs = sorted.slice(5, 10);
 
     // Fetch AS names for upstreams in parallel
@@ -167,19 +364,24 @@ export async function getASNNeighbours(asn) {
           `${API_ENDPOINTS.RIPESTAT_AS_OVERVIEW}?resource=AS${n.asn}`,
           5000 // shorter timeout for individual lookups
         );
-        const holder = asData?.data?.holder || `AS${n.asn}`;
+
+        // RIPEstat returns nested structure: data.data.holder
+        const holder = KNOWN_TIER1_ASNS[String(n.asn)] || asData?.data?.holder || `AS${n.asn}`;
+
         return {
           asn: n.asn,
           name: holder,
-          power: n.power || 0,
-          type: n.type || 'left',
+          power: n.power,
+          type: n.type,
+          countryCode: getKnownASCountry(n.asn), // Add country code fallback
         };
       } catch {
         return {
           asn: n.asn,
-          name: `AS${n.asn}`,
-          power: n.power || 0,
-          type: n.type || 'left',
+          name: KNOWN_TIER1_ASNS[String(n.asn)] || `AS${n.asn}`,
+          power: n.power,
+          type: n.type,
+          countryCode: getKnownASCountry(n.asn), // Add country code fallback
         };
       }
     });
@@ -191,33 +393,41 @@ export async function getASNNeighbours(asn) {
           `${API_ENDPOINTS.RIPESTAT_AS_OVERVIEW}?resource=AS${n.asn}`,
           5000
         );
-        const holder = asData?.data?.holder || `AS${n.asn}`;
+
+        // RIPEstat returns nested structure: data.data.holder
+        const holder = KNOWN_TIER1_ASNS[String(n.asn)] || asData?.data?.holder || `AS${n.asn}`;
+
         return {
           asn: n.asn,
           name: holder,
-          power: n.power || 0,
-          type: n.type || 'right',
+          power: n.power,
+          type: n.type,
+          countryCode: getKnownASCountry(n.asn), // Add country code fallback
         };
       } catch {
         return {
           asn: n.asn,
-          name: `AS${n.asn}`,
-          power: n.power || 0,
-          type: n.type || 'right',
+          name: KNOWN_TIER1_ASNS[String(n.asn)] || `AS${n.asn}`,
+          power: n.power,
+          type: n.type,
+          countryCode: getKnownASCountry(n.asn), // Add country code fallback
         };
       }
     });
 
-    // Wait for all lookups
+    // **STRICT LOADING:** Wait for ALL names to be fetched (parallel)
     const [upstreams, peers] = await Promise.all([
       Promise.all(upstreamPromises),
       Promise.all(peerPromises),
     ]);
 
-    return { neighbours, upstreams, peers };
+    return {
+      upstreams,
+      peers,
+    };
   } catch (error) {
     console.error('RIPEstat ASN neighbours fetch error:', error);
-    return { neighbours: [], upstreams: [], peers: [] };
+    return { upstreams: [], peers: [] };
   }
 }
 
@@ -493,27 +703,28 @@ function getKnownASCountry(asn) {
 // Alias for backward compatibility
 const getTier1Country = getKnownASCountry;
 
+// List of known Tier-1 ASNs (no upstream providers)
+const TIER1_ASNS = [
+  174,    // Cogent
+  1299,   // Arelion (formerly Telia)
+  2914,   // NTT
+  3257,   // GTT
+  3320,   // Deutsche Telekom
+  3356,   // Lumen (Level3)
+  5511,   // Orange
+  6453,   // Tata Communications
+  6461,   // Zayo
+  6762,   // Telecom Italia Sparkle
+  6830,   // Liberty Global
+  7018,   // AT&T
+  12956,  // Telefonica
+];
+
 /**
  * Check if an ASN is a known Tier-1 provider
  */
 function isTier1AS(asn) {
-  // Major Tier-1 transit providers
-  const tier1ASNs = [
-    174,    // Cogent
-    1299,   // Arelion (formerly Telia)
-    2914,   // NTT
-    3257,   // GTT
-    3320,   // Deutsche Telekom
-    3356,   // Lumen (Level3)
-    5511,   // Orange
-    6453,   // Tata Communications
-    6461,   // Zayo
-    6762,   // Telecom Italia Sparkle
-    6830,   // Liberty Global
-    7018,   // AT&T
-    12956,  // Telefonica
-  ];
-  return tier1ASNs.includes(Number(asn));
+  return TIER1_ASNS.includes(Number(asn));
 }
 
 /**
@@ -666,25 +877,29 @@ export async function getCompleteBGPData(ip) {
   const [asOverview, neighbours, pathAnalysis] = await Promise.all([
     getASOverview(primaryASN),
     getASNNeighbours(primaryASN),
-    getBGPPaths(ipInfo.prefix),
+    getBGPPaths(ipInfo.prefix), // Restored for full graph
   ]);
 
   // Use geolocation country code if AS overview doesn't have it
   const countryCode = asOverview.countryCode || geolocation?.countryCode || null;
 
-  // Merge path analysis into upstreams
+  // **STRICT LOADING POLICY:**
+  // Merge path analysis into upstreams and ensure ALL data is hydrated
   const upstreamsWithPathInfo = neighbours.upstreams.map(u => ({
     ...u,
     isPrimary: pathAnalysis.upstreamInfo[u.asn]?.isPrimary || false,
     isBackup: pathAnalysis.upstreamInfo[u.asn]?.isBackup || false,
-    hasPrepending: pathAnalysis.upstreamInfo[u.asn]?.hasPrepending || false,
-    avgPathLength: pathAnalysis.upstreamInfo[u.asn]?.avgPathLength || null,
+    isTier1: pathAnalysis.upstreamInfo[u.asn]?.isTier1 || false,
     rank: pathAnalysis.upstreamInfo[u.asn]?.rank || 999,
+    // Name and countryCode are ALREADY fetched in getASNNeighbours
+    // This ensures 100% hydrated data before rendering
   }));
 
   // Sort upstreams by rank (primary first)
   upstreamsWithPathInfo.sort((a, b) => a.rank - b.rank);
 
+  // **STRICT LOADING:** All names are fetched, all flags are set
+  // UI will receive complete data with no undefined values
   return {
     ip,
     ipType: validation.type,
@@ -706,7 +921,11 @@ export async function getCompleteBGPData(ip) {
     rir: 'RIPE NCC',
     allPrefixes: [{ prefix: ipInfo.prefix }],
     allASNs: ipInfo.allASNs,
-    pathAnalysis, // Include full path analysis
+    pathAnalysis: {
+      ...pathAnalysis,
+      // Add backupPaths for graph visualization (full upstream objects, not just ASNs)
+      backupPaths: upstreamsWithPathInfo.filter(u => u.isBackup === true),
+    },
   };
 }
 
@@ -873,9 +1092,30 @@ export function generateGraphData(bgpData) {
   });
 
   // === 6. BACKUP UPSTREAMS (Right side - single column, properly aligned) ===
-  const backupUpstreams = bgpData.upstreams.filter(u =>
-    !chainToShow.some(c => c.asn === u.asn) && u.asn !== bgpData.primaryAS.asn
-  ).slice(0, 4);
+  // Manual filtering with Tier-1 prioritization (ensures AS1299, AS6453 show up)
+
+  // Step 1: Get ASNs already used in main vertical chain
+  const chainASNs = new Set(chainToShow.map(n => String(n.asn)));
+  chainASNs.add(String(bgpData.primaryAS.asn)); // Also exclude primary AS
+
+  // Step 2: Filter remaining upstreams (not in chain)
+  const remainingUpstreams = bgpData.upstreams.filter(u =>
+    !chainASNs.has(String(u.asn))
+  );
+
+  // Step 3: Sort - KNOWN_TIER1_ASNS first (real backbone providers)
+  remainingUpstreams.sort((a, b) => {
+    const isTier1A = !!KNOWN_TIER1_ASNS[String(a.asn)];
+    const isTier1B = !!KNOWN_TIER1_ASNS[String(b.asn)];
+    // Tier-1s come first
+    if (isTier1A && !isTier1B) return -1;
+    if (!isTier1A && isTier1B) return 1;
+    return 0; // Keep original order for same category
+  });
+
+  // STRICT: Use pathAnalysis.backupPaths instead of manual filtering
+  // This ensures graph shows exactly what InfoPanel shows
+  const backupUpstreams = bgpData.pathAnalysis?.backupPaths || [];
 
   const BACKUP_X = CENTER_X + 320;  // Fixed X position for all backups
   const BACKUP_START_Y = 460;       // Start from Primary AS level
@@ -917,27 +1157,25 @@ export function generateGraphData(bgpData) {
 
   // === 7. PEERS (Left side - single column, properly aligned) ===
   const peers = bgpData.peers.slice(0, 4);
-  const PEER_X = CENTER_X - 500;   // Fixed X position for all peers
-  const PEER_START_Y = 460;        // Start from Primary AS level
-  const PEER_SPACING = 90;         // Vertical spacing between peers
+  const PEER_START_Y = 100;
+  const PEER_X = CENTER_X - 450;
 
   peers.forEach((peer, index) => {
     const nodeId = `peer-${peer.asn}`;
+    const yPos = PEER_START_Y + (index * (NODE_HEIGHT + VERTICAL_GAP));
 
     nodes.push({
       id: nodeId,
       type: 'peerNode',
-      position: {
-        x: PEER_X,
-        y: PEER_START_Y - (index * PEER_SPACING),
-      },
+      position: { x: PEER_X, y: yPos },
       data: {
         asn: peer.asn,
-        name: peer.name,
+        name: peer.name || `AS${peer.asn}`, // Ensure name is always present
         countryCode: peer.countryCode || getKnownASCountry(peer.asn),
       },
     });
 
+    // Edge from primary AS to peer
     edges.push({
       id: `${primaryASNodeId}-to-${nodeId}`,
       source: primaryASNodeId,

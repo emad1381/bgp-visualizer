@@ -3,9 +3,11 @@
    Main application layout and components
    ============================================ */
 
-/* App Container */
+/* App Container - Strict Flexbox Layout */
 .app {
-  min-height: 100vh;
+  height: 100vh;
+  /* Strict viewport height */
+  width: 100vw;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -61,14 +63,17 @@
   opacity: 0.1;
 }
 
-/* Header */
+/* Header - No bottom spacing */
 .app-header {
   position: relative;
   z-index: 10;
-  padding: var(--spacing-md) var(--spacing-xl);
+  padding: 16px 32px;
+  /* Fixed padding */
   background: var(--bg-glass);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
+  /* Prevent header from shrinking */
 }
 
 .app-header-content {
@@ -175,14 +180,20 @@
   transform: rotate(0deg) scale(0.95);
 }
 
-/* Main Content */
+/* Main Content - Fill remaining space */
 .app-main {
   flex: 1;
+  /* Grow to fill all remaining space */
   display: flex;
   position: relative;
   z-index: 1;
   overflow: hidden;
+  min-height: 0;
+  /* Important for flex children */
+  /* NO default margin - panel is absolute positioned */
 }
+
+
 
 /* Error State */
 .app-error {
@@ -233,13 +244,20 @@
   opacity: 1;
 }
 
-/* Graph Area */
+/* Graph Area - Fill all available space */
 .app-graph {
   flex: 1;
+  /* Grow to fill main content */
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-md);
+  /* NO PADDING - graph fills edge to edge */
+  min-height: 0;
+  /* Important for flex */
+  min-width: 0;
+  /* Important for flex */
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Smooth resize */
 }
 
 /* Loading State */
@@ -395,6 +413,19 @@
     -webkit-overflow-scrolling: touch;
     margin-top: 60px;
     /* Fixed header height */
+  }
+
+  /* Mobile Landscape - Adjust for side panel */
+  @media (orientation: landscape) {
+    .app-main {
+      margin-right: 0;
+      /* Side panel handled by InfoPanel */
+    }
+
+    .app-graph {
+      margin-right: 320px;
+      /* Make space for side panel */
+    }
   }
 
   /* Mobile Graph - Takes remaining screen */

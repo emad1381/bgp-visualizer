@@ -2,6 +2,7 @@
  * Info Panel Component
  * Displays detailed BGP information in a sidebar
  * On mobile: Draggable bottom sheet with swipe-to-dismiss
+ * Portrait: Bottom sheet | Landscape: Side panel
  */
 
 import {
@@ -39,7 +40,7 @@ const FlagIcon = ({ code, size = 16 }) => {
     );
 };
 
-// Mobile detection hook
+// Mobile detection hook with orientation tracking
 const useIsMobile = () => {
     const [isMobile, setIsMobile] = useState(false);
 
@@ -51,6 +52,26 @@ const useIsMobile = () => {
     }, []);
 
     return isMobile;
+};
+
+// Orientation detection hook
+const useOrientation = () => {
+    const [isLandscape, setIsLandscape] = useState(false);
+
+    useEffect(() => {
+        const checkOrientation = () => {
+            setIsLandscape(window.innerWidth > window.innerHeight);
+        };
+        checkOrientation();
+        window.addEventListener('resize', checkOrientation);
+        window.addEventListener('orientationchange', checkOrientation);
+        return () => {
+            window.removeEventListener('resize', checkOrientation);
+            window.removeEventListener('orientationchange', checkOrientation);
+        };
+    }, []);
+
+    return isLandscape;
 };
 
 /**
@@ -145,15 +166,72 @@ const PanelContent = ({ data, copied, handleCopy }) => (
             </div>
         )}
 
-        {/* Upstreams Section */}
-        {data.upstreams && data.upstreams.length > 0 && (
+        {/* Primary Upstreams */}
+        {data.upstreams && data.upstreams.filter(u => u.isPrimary).length > 0 && (
             <div className="info-section">
                 <div className="info-section-header">
                     <Network size={16} />
-                    <span>Upstreams ({data.upstreams.length})</span>
+                    <span>Primary Upstreams ({data.upstreams.filter(u => u.isPrimary).length})</span>
                 </div>
                 <div className="info-list">
-                    {data.upstreams.slice(0, 5).map((upstream) => (
+                    {data.upstreams.filter(u => u.isPrimary).map((upstream) => (
+                        <div key={upstream.asn} className="info-list-item info-list-item-primary">
+                            <span className="info-list-asn">AS{upstream.asn}</span>
+                            <span className="info-list-name">{upstream.name}</span>
+                            <span className="info-list-flag"><FlagIcon code={upstream.countryCode} size={14} /></span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {/* Backup Upstreams */}
+        {data.upstreams && data.upstreams.filter(u => u.isBackup).length > 0 && (
+            <div className="info-section">
+                <div className="info-section-header">
+                    <Network size={16} />
+                    <span>Backup Upstreams ({data.upstreams.filter(u => u.isBackup).length})</span>
+                </div>
+                <div className="info-list">
+                    {data.upstreams.filter(u => u.isBackup).map((upstream) => (
+                        <div key={upstream.asn} className="info-list-item info-list-item-backup">
+                            <span className="info-list-asn">AS{upstream.asn}</span>
+                            <span className="info-list-name">{upstream.name}</span>
+                            <span className="info-list-flag"><FlagIcon code={upstream.countryCode} size={14} /></span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {/* Tier-1 Providers */}
+        {data.upstreams && data.upstreams.filter(u => u.isTier1).length > 0 && (
+            <div className="info-section">
+                <div className="info-section-header">
+                    <Network size={16} />
+                    <span>Tier-1 Providers ({data.upstreams.filter(u => u.isTier1).length})</span>
+                </div>
+                <div className="info-list">
+                    {data.upstreams.filter(u => u.isTier1).map((upstream) => (
+                        <div key={upstream.asn} className="info-list-item info-list-item-tier1">
+                            <span className="info-list-asn">AS{upstream.asn}</span>
+                            <span className="info-list-name">{upstream.name}</span>
+                            <span className="info-list-flag"><FlagIcon code={upstream.countryCode} size={14} /></span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {/* Other Upstreams (neither primary, backup, nor tier-1) */}
+        {data.upstreams && data.upstreams.filter(u => !u.isPrimary && !u.isBackup && !u.isTier1).length > 0 && (
+            <div className="info-section">
+                <div className="info-section-header">
+                    <Network size={16} />
+                    <span>Other Upstreams ({data.upstreams.filter(u => !u.isPrimary && !u.isBackup && !u.isTier1).length})</span>
+                </div>
+                <div className="info-list">
+                    {data.upstreams.filter(u => !u.isPrimary && !u.isBackup && !u.isTier1).map((upstream) => (
                         <div key={upstream.asn} className="info-list-item">
                             <span className="info-list-asn">AS{upstream.asn}</span>
                             <span className="info-list-name">{upstream.name}</span>
@@ -172,7 +250,7 @@ const PanelContent = ({ data, copied, handleCopy }) => (
                     <span>Peers ({data.peers.length})</span>
                 </div>
                 <div className="info-list">
-                    {data.peers.slice(0, 4).map((peer) => (
+                    {data.peers.map((peer) => (
                         <div key={peer.asn} className="info-list-item info-list-item-small">
                             <span className="info-list-asn">AS{peer.asn}</span>
                             <span className="info-list-name">{peer.name}</span>
@@ -188,10 +266,11 @@ const PanelContent = ({ data, copied, handleCopy }) => (
 /**
  * Info Panel Component
  */
-export default function InfoPanel({ data }) {
+export default function InfoPanel({ data, panelCollapsed, onTogglePanel }) {
     const [copied, setCopied] = useState(null);
     const [expanded, setExpanded] = useState(false);
     const isMobile = useIsMobile();
+    const isLandscape = useOrientation();
 
     // Auto-expand when data changes on mobile
     useEffect(() => {
@@ -199,6 +278,11 @@ export default function InfoPanel({ data }) {
             setExpanded(true);
         }
     }, [data, isMobile]);
+
+    // Toggle panel (desktop, tablet, landscape)
+    const togglePanel = () => {
+        onTogglePanel(!panelCollapsed);
+    };
 
     // Handle copy
     const handleCopy = async (text, key) => {
@@ -228,26 +312,10 @@ export default function InfoPanel({ data }) {
         }
     };
 
-    // Mobile FAB when collapsed
-    if (isMobile && !expanded && data) {
-        return (
-            <motion.button
-                className="info-panel-fab"
-                onClick={toggleExpand}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                whileTap={{ scale: 0.95 }}
-            >
-                <Info size={20} />
-                <span>BGP Info</span>
-            </motion.button>
-        );
-    }
-
     // Empty state
     if (!data) {
         return (
-            <div className="info-panel">
+            <div className={`info-panel ${isMobile && isLandscape ? 'info-panel-landscape' : ''}`}>
                 <div className="info-panel-empty">
                     <Globe size={isMobile ? 24 : 48} />
                     <p>Search for an IP to see details</p>
@@ -256,44 +324,153 @@ export default function InfoPanel({ data }) {
         );
     }
 
-    // Desktop version
+    // Desktop version - Side Panel with Toggle
     if (!isMobile) {
         return (
-            <div className="info-panel">
-                <div className="info-panel-header">
-                    <div className="info-panel-title">
-                        <Globe size={20} />
-                        <span>BGP Information</span>
+            <>
+                {/* Desktop Toggle Button */}
+                <motion.button
+                    className="panel-toggle-btn"
+                    onClick={togglePanel}
+                    whileTap={{ scale: 0.95 }}
+                    aria-label="Toggle Info Panel"
+                    title={panelCollapsed ? 'Show Info Panel' : 'Hide Info Panel'}
+                >
+                    <motion.div
+                        animate={{ rotate: panelCollapsed ? 0 : 180 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
+                    </motion.div>
+                </motion.button>
+
+                {/* Side Panel */}
+                <motion.div
+                    className="info-panel"
+                    initial={false}
+                    animate={{
+                        x: panelCollapsed ? 360 : 0
+                    }}
+                    transition={{
+                        type: "spring",
+                        damping: 25,
+                        stiffness: 300
+                    }}
+                >
+                    <div className="info-panel-header">
+                        <div className="info-panel-title">
+                            <Globe size={20} />
+                            <span>BGP Information</span>
+                        </div>
+                        <div className="info-panel-ip">
+                            <span>{data.ip}</span>
+                            <button
+                                className="info-copy-btn"
+                                onClick={() => handleCopy(data.ip, 'ip')}
+                            >
+                                {copied === 'ip' ? <CheckCircle size={14} /> : <Copy size={14} />}
+                            </button>
+                        </div>
                     </div>
-                    <div className="info-panel-ip">
-                        <span>{data.ip}</span>
-                        <button
-                            className="info-copy-btn"
-                            onClick={() => handleCopy(data.ip, 'ip')}
-                        >
-                            {copied === 'ip' ? <CheckCircle size={14} /> : <Copy size={14} />}
-                        </button>
-                    </div>
-                </div>
-                <PanelContent data={data} copied={copied} handleCopy={handleCopy} />
-            </div>
+                    <PanelContent data={data} copied={copied} handleCopy={handleCopy} />
+                </motion.div>
+            </>
         );
     }
 
-    // Mobile version - Draggable bottom sheet
+    // Mobile Landscape - Side Panel with Toggle
+    if (isMobile && isLandscape) {
+        return (
+            <>
+                {/* Landscape Toggle Button */}
+                <motion.button
+                    className="panel-toggle-btn landscape-toggle-btn"
+                    onClick={togglePanel}
+                    whileTap={{ scale: 0.95 }}
+                    aria-label="Toggle Info Panel"
+                >
+                    <motion.div
+                        animate={{ rotate: panelCollapsed ? 0 : 180 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
+                    </motion.div>
+                </motion.button>
+
+                {/* Side Panel */}
+                <motion.div
+                    className="info-panel info-panel-landscape"
+                    initial={false}
+                    animate={{
+                        x: panelCollapsed ? 320 : 0
+                    }}
+                    transition={{
+                        type: "spring",
+                        damping: 25,
+                        stiffness: 300
+                    }}
+                >
+                    <div className="info-panel-header">
+                        <div className="info-panel-title">
+                            <Globe size={18} />
+                            <span>BGP Info</span>
+                        </div>
+                        <div className="info-panel-ip">
+                            <span>{data.ip}</span>
+                            <button
+                                className="info-copy-btn"
+                                onClick={() => handleCopy(data.ip, 'ip')}
+                            >
+                                {copied === 'ip' ? <CheckCircle size={14} /> : <Copy size={14} />}
+                            </button>
+                        </div>
+                    </div>
+                    <PanelContent data={data} copied={copied} handleCopy={handleCopy} />
+                </motion.div>
+            </>
+        );
+    }
+
+    // Mobile Portrait - Draggable Bottom Sheet with Sticky Handle
     return (
         <motion.div
             className="info-panel info-panel-mobile"
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0.1, bottom: 0.5 }}
+            dragElastic={{ top: 0, bottom: 0.3 }}
+            dragTransition={{ bounceStiffness: 300, bounceDamping: 25 }}
             onDragEnd={handleDragEnd}
-            animate={{ y: expanded ? 0 : "calc(100% - 70px)" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            initial={false}
+            animate={{
+                y: expanded ? 0 : `calc(100vh - 180px)`
+            }}
+            transition={{
+                type: "spring",
+                damping: 30,
+                stiffness: 400,
+                mass: 0.8
+            }}
+            style={{
+                touchAction: 'none'
+            }}
         >
-            {/* Drag Handle */}
-            <div className="info-panel-handle">
+            {/* Drag Handle - STICKY - Always visible */}
+            <div
+                className="info-panel-handle"
+                onClick={toggleExpand}
+            >
                 <div className="info-panel-handle-bar" />
+                <span className="info-panel-handle-hint">
+                    {expanded ? 'Swipe down to minimize' : 'Swipe up for details'}
+                </span>
             </div>
 
             {/* Header */}

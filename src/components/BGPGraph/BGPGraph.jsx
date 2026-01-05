@@ -3,11 +3,10 @@
  * Interactive graph visualization using React Flow
  */
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
     ReactFlow,
     Controls,
-    MiniMap,
     Background,
     useNodesState,
     useEdgesState,
@@ -22,8 +21,10 @@ import './BGPGraph.css';
  * BGP Graph Component
  * @param {object} props - Component props
  * @param {object} props.graphData - Graph data with nodes and edges
+ * @param {function} props.onNodeClick - Handler for node click events
+ * @param {Set} props.loadingNodes - Set of ASNs currently loading
  */
-export default function BGPGraph({ graphData }) {
+export default function BGPGraph({ graphData, onNodeClick, loadingNodes }) {
     const [nodes, setNodes, onNodesChange] = useNodesState(graphData?.nodes || []);
     const [edges, setEdges, onEdgesChange] = useEdgesState(graphData?.edges || []);
 
@@ -36,26 +37,6 @@ export default function BGPGraph({ graphData }) {
             setEdges(graphData.edges);
         }
     }, [graphData, setNodes, setEdges]);
-
-    // Minimap node color based on node type
-    const nodeColor = useCallback((node) => {
-        switch (node.type) {
-            case 'ipNode':
-                return '#6366f1';
-            case 'asNode':
-                return '#8b5cf6';
-            case 'upstreamNode':
-                return '#22d3ee';
-            case 'peerNode':
-                return '#f59e0b';
-            case 'geoNode':
-                return '#f43f5e';
-            case 'prefixNode':
-                return '#10b981';
-            default:
-                return '#64748b';
-        }
-    }, []);
 
     // Empty state
     if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
@@ -76,9 +57,6 @@ export default function BGPGraph({ graphData }) {
         );
     }
 
-    // Check if mobile
-    const isMobile = window.innerWidth <= 768;
-
     return (
         <div className="bgp-graph-container">
             <ReactFlow
@@ -86,32 +64,26 @@ export default function BGPGraph({ graphData }) {
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
+                onNodeClick={onNodeClick} // Enable node clicking
                 nodeTypes={nodeTypes}
                 fitView
                 fitViewOptions={{ padding: 0.2 }}
-                minZoom={0.3}
+                minZoom={0.1}
                 maxZoom={2}
                 defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
                 proOptions={{ hideAttribution: true }}
+                defaultEdgeOptions={{
+                    animated: false,
+                    style: { stroke: '#64748b', strokeWidth: 2 },
+                }}
             >
-                <Controls
-                    position="bottom-right"
-                    showInteractive={false}
-                />
-                {/* Hide MiniMap on mobile */}
-                {!isMobile && (
-                    <MiniMap
-                        nodeColor={nodeColor}
-                        maskColor="rgba(0, 0, 0, 0.8)"
-                        position="bottom-left"
-                    />
-                )}
                 <Background
                     variant={BackgroundVariant.Dots}
                     gap={20}
                     size={1}
-                    color="rgba(255, 255, 255, 0.05)"
+                    color="rgba(148, 163, 184, 0.1)"
                 />
+                <Controls />
             </ReactFlow>
         </div>
     );

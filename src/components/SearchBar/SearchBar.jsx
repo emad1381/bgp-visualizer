@@ -49,29 +49,17 @@ export default function SearchBar({ onSearch, isLoading }) {
     const handleChange = (e) => {
         const newValue = e.target.value;
         setValue(newValue);
-        setError('');
-
-        if (newValue.length > 0) {
-            const validation = validateIP(newValue);
-            if (!validation.valid && newValue.length > 6) {
-                setError('Invalid IP address format');
-            }
-        }
+        setError(''); // Clear any previous errors
     };
 
     // Handle search
     const handleSearch = () => {
         if (!value.trim()) {
-            setError('Please enter an IP address');
+            setError('Please enter an IP address or domain name');
             return;
         }
 
-        const validation = validateIP(value.trim());
-        if (!validation.valid) {
-            setError('Invalid IP address format');
-            return;
-        }
-
+        // Don't validate here - let App.jsx handle it (supports domain names too)
         setError('');
         setShowDropdown(false);
         saveToHistory(value.trim());
@@ -128,7 +116,7 @@ export default function SearchBar({ onSearch, isLoading }) {
                     ref={inputRef}
                     type="text"
                     className="search-bar-input"
-                    placeholder="Enter IPv4 or IPv6 address (e.g., 8.8.8.8)"
+                    placeholder="Enter IP or Domain (e.g., 8.8.8.8 or google.com)"
                     value={value}
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
