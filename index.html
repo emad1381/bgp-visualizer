@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BGP Visualizer - Network Routing Intelligence</title>
+    <meta name="description" content="Visualize BGP routing information with an interactive graph. Enter any IP address to see AS numbers, upstreams, and geographic locations." />
+    <meta name="keywords" content="BGP, Border Gateway Protocol, IP lookup, AS number, network routing, visualization" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="BGP Visualizer" />
+    <meta property="og:description" content="Interactive BGP routing visualization tool" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Preconnect to APIs -->
+    <link rel="preconnect" href="https://api.bgpview.io" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

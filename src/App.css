@@ -1,0 +1,543 @@
+/* ============================================
+   App Component Styles
+   Main application layout and components
+   ============================================ */
+
+/* App Container */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background Effects */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-bg-gradient {
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-dark);
+}
+
+.app-bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border-primary) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-primary) 1px, transparent 1px);
+  background-size: 50px 50px;
+  mask-image: radial-gradient(ellipse at center, black 0%, transparent 70%);
+}
+
+.app-bg-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.4;
+}
+
+.app-bg-glow-1 {
+  width: 600px;
+  height: 600px;
+  background: var(--accent-primary);
+  top: -200px;
+  left: -200px;
+  opacity: 0.15;
+}
+
+.app-bg-glow-2 {
+  width: 500px;
+  height: 500px;
+  background: var(--accent-cyan);
+  bottom: -150px;
+  right: -150px;
+  opacity: 0.1;
+}
+
+/* Header */
+.app-header {
+  position: relative;
+  z-index: 10;
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.app-header-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xl);
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+/* Logo */
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+.app-logo-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+}
+
+.app-logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-logo-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.app-logo-subtitle {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.5px;
+}
+
+.app-header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+.app-header-link {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-glass);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.app-header-link:hover {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+  background: var(--bg-glass-hover);
+  transform: rotate(15deg);
+}
+
+.theme-toggle:active {
+  transform: rotate(0deg) scale(0.95);
+}
+
+/* Main Content */
+.app-main {
+  flex: 1;
+  display: flex;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+/* Error State */
+.app-error {
+  position: absolute;
+  top: var(--spacing-md);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  animation: slide-up 0.3s ease-out;
+}
+
+.app-error-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(20px);
+}
+
+.app-error-icon {
+  font-size: 20px;
+}
+
+.app-error-text {
+  font-size: 14px;
+  color: var(--accent-rose);
+}
+
+.app-error-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--accent-rose);
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.app-error-close:hover {
+  opacity: 1;
+}
+
+/* Graph Area */
+.app-graph {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+}
+
+/* Loading State */
+.app-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xl);
+}
+
+.app-loading-spinner {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.spinner-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--accent-primary);
+  animation: rotate 1.2s linear infinite;
+}
+
+.spinner-ring:nth-child(2) {
+  inset: 8px;
+  border-top-color: var(--accent-secondary);
+  animation-duration: 1s;
+  animation-direction: reverse;
+}
+
+.spinner-ring:nth-child(3) {
+  inset: 16px;
+  border-top-color: var(--accent-cyan);
+  animation-duration: 0.8s;
+}
+
+.app-loading-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Footer */
+.app-footer {
+  position: relative;
+  z-index: 10;
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-primary);
+}
+
+.app-footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.app-footer-divider {
+  opacity: 0.5;
+}
+
+/* ============================================
+   RESPONSIVE - TABLET
+   ============================================ */
+@media (max-width: 1200px) {
+  .app-header-content {
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+  }
+
+  .app-header-center {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - MOBILE (Complete Redesign)
+   ============================================ */
+@media (max-width: 768px) {
+
+  /* Mobile Header - Always visible at top */
+  .app-header {
+    padding: 10px 12px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
+  }
+
+  .app-header-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  /* Hide logo text on mobile - just icon */
+  .app-logo {
+    flex-shrink: 0;
+  }
+
+  .app-logo-text {
+    display: none;
+  }
+
+  .app-logo-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .app-logo-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Search takes remaining space */
+  .app-header-center {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Actions - compact */
+  .app-header-actions {
+    flex-shrink: 0;
+    gap: 4px;
+  }
+
+  .app-header-link {
+    display: none;
+  }
+
+  .theme-toggle {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Mobile Main - Stack vertically with header offset */
+  .app-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-top: 60px;
+    /* Fixed header height */
+  }
+
+  /* Mobile Graph - Takes remaining screen */
+  .app-graph {
+    flex: 1;
+    width: 100%;
+    min-height: calc(100vh - 120px);
+    padding: 8px;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .app-graph>* {
+    flex: 1;
+  }
+
+  /* Mobile Loading */
+  .app-loading-spinner {
+    width: 60px;
+    height: 60px;
+  }
+
+  .app-loading-text {
+    font-size: 13px;
+  }
+
+  /* Mobile Error */
+  .app-error {
+    left: var(--spacing-md);
+    right: var(--spacing-md);
+    transform: none;
+  }
+
+  .app-error-content {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  /* Mobile Footer - Minimal */
+  .app-footer {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .app-footer-content {
+    flex-direction: column;
+    gap: 2px;
+    font-size: 10px;
+  }
+
+  .app-footer-divider {
+    display: none;
+  }
+
+  /* Hide background effects on mobile for performance */
+  .app-bg-glow {
+    opacity: 0.05;
+  }
+
+  .app-bg-grid {
+    background-size: 30px 30px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - SMALL MOBILE (iPhone SE, etc)
+   ============================================ */
+@media (max-width: 375px) {
+  .app-logo-text {
+    display: none;
+  }
+
+  .app-header-actions {
+    gap: var(--spacing-xs);
+  }
+
+  .app-graph {
+    min-height: 50vh;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - MOBILE LANDSCAPE
+   ============================================ */
+@media (max-width: 896px) and (max-height: 500px) and (orientation: landscape) {
+  .app-header {
+    padding: 6px 12px;
+  }
+
+  .app-logo-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .theme-toggle {
+    width: 32px;
+    height: 32px;
+  }
+
+  .app-main {
+    margin-top: 50px;
+  }
+
+  .app-graph {
+    min-height: calc(100vh - 100px);
+  }
+
+  .app-footer {
+    padding: 4px 12px;
+  }
+
+  .app-footer-content {
+    font-size: 9px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - TABLET PORTRAIT (768px - 1024px)
+   ============================================ */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .app-header {
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+
+  .app-main {
+    flex-direction: row;
+  }
+
+  .app-graph {
+    flex: 1;
+    min-height: auto;
+    height: 100%;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - TABLET LANDSCAPE
+   ============================================ */
+@media (min-width: 769px) and (max-width: 1024px) and (orientation: landscape) {
+  .app-header-content {
+    gap: var(--spacing-lg);
+  }
+
+  .app-graph {
+    height: calc(100vh - 140px);
+  }
+}
