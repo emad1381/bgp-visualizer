@@ -115,42 +115,6 @@ const KNOWN_TIER1_ASNS = {
 };
 
 /**
- * Robust AS Name Fetcher
- * STEP 1: Check local dictionary (instant)
- * STEP 2: Fetch from RIPEstat API
- * STEP 3: Return null if both fail
- * @param {number|string} asn - AS Number
- * @returns {Promise<string|null>} - AS Name or null
- */
-const fetchASName = async (asn) => {
-  // FORCE convert to string for reliable dictionary lookup
-  const asnStr = String(asn).trim();
-
-  // STEP 1: Dictionary check FIRST (no API call)
-  if (KNOWN_TIER1_ASNS[asnStr]) {
-    return KNOWN_TIER1_ASNS[asnStr];
-  }
-
-  // STEP 2: API fetch if not in dictionary
-  try {
-    const response = await fetchWithTimeout(
-      `${API_ENDPOINTS.RIPESTAT_AS_OVERVIEW}?resource=AS${asnStr}`,
-      5000
-    );
-    const holder = response?.data?.holder;
-
-    if (holder) {
-      return holder;
-    }
-  } catch {
-    // silent — callers handle the fallback
-  }
-
-  // STEP 3: Return null (caller handles fallback)
-  return null;
-};
-
-/**
  * Validate IP address format
  * @param {string} ip - IP address to validate
  * @returns {object} - { valid: boolean, type: 'ipv4' | 'ipv6' | null }

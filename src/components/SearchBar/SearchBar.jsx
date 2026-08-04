@@ -34,9 +34,9 @@ export default function SearchBar({ onSearch, isLoading }) {
     useEffect(() => {
         const savedHistory = localStorage.getItem('bgp-search-history');
         if (savedHistory) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init
             setHistory(JSON.parse(savedHistory));
         }
-         
     }, []);
 
     // Save to history

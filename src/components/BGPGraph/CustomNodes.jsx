@@ -234,13 +234,3 @@ export const PrefixNode = memo(({ data }) => {
 });
 
 PrefixNode.displayName = 'PrefixNode';
-
-// Export all node types for React Flow
-export const nodeTypes = {
-    ipNode: IPNode,
-    asNode: ASNode,
-    upstreamNode: UpstreamNode,
-    peerNode: PeerNode,
-    geoNode: GeoNode,
-    prefixNode: PrefixNode,
-};

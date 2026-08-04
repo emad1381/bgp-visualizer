@@ -275,9 +275,9 @@ export default function InfoPanel({ data, panelCollapsed, onTogglePanel }) {
     // (intentional: the bottom sheet must open when a new search lands)
     useEffect(() => {
         if (data && isMobile) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate: open sheet on new search
             setExpanded(true);
         }
-         
     }, [data, isMobile]);
 
     // Toggle panel (desktop, tablet, landscape)

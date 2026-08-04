@@ -15,7 +15,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Network } from 'lucide-react';
-import { nodeTypes } from './CustomNodes';
+import { nodeTypes } from './nodeTypes';
 import './BGPGraph.css';
 
 /**
