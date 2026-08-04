@@ -63,19 +63,23 @@ IPNode.displayName = 'IPNode';
  * AS Node - Autonomous System node
  */
 export const ASNode = memo(({ data }) => {
+    const isLoading = data.loading;
     return (
-        <div className={`node-as ${data.isPrimary ? 'node-as-primary' : ''}`}>
+        <div className={`node-as ${data.isPrimary ? 'node-as-primary' : ''} node-clickable ${isLoading ? 'node-loading' : ''}`}>
             <Handle type="target" position={Position.Bottom} />
             <div className="node-as-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                     <Server size={18} />
                     <span className="node-as-number">AS{data.asn}</span>
                 </div>
-                {data.countryCode && (
-                    <span className="node-as-flag">
-                        <FlagIcon code={data.countryCode} size={16} />
-                    </span>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isLoading && <span className="node-spinner" />}
+                    {data.countryCode && (
+                        <span className="node-as-flag">
+                            <FlagIcon code={data.countryCode} size={16} />
+                        </span>
+                    )}
+                </div>
             </div>
             <div className="node-as-body">
                 <span className="node-as-name">{data.name || `AS${data.asn}`}</span>
@@ -100,12 +104,17 @@ export const UpstreamNode = memo(({ data }) => {
     const isPrimary = data.isPrimary;
     const isBackup = data.isBackup || data.hasPrepending;
     const isTier1 = data.isTier1;
+    const isLoading = data.loading;
 
     // Determine CSS class
     let className = 'node-upstream';
     if (isTier1) className += ' node-upstream-tier1';
     else if (isPrimary) className += ' node-upstream-primary';
     else if (isBackup) className += ' node-upstream-backup';
+
+    // Every upstream node is clickable (expands the graph on click)
+    className += ' node-clickable';
+    if (isLoading) className += ' node-loading';
 
     return (
         <div className={className}>
@@ -126,6 +135,7 @@ export const UpstreamNode = memo(({ data }) => {
                             <span className="node-upstream-badge node-upstream-badge-prepend">PREPEND</span>
                         )}
                     </div>
+                    {isLoading && <span className="node-spinner" />}
                     {data.countryCode && (
                         <span className="node-upstream-flag">
                             <FlagIcon code={data.countryCode} size={16} />

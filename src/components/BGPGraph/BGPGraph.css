@@ -25,6 +25,66 @@
 }
 
 /* ============================================
+   Node animations & shared affordances
+   ============================================ */
+.react-flow__node {
+    animation: node-enter 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes node-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.node-clickable {
+    cursor: pointer;
+}
+
+.node-clickable:hover {
+    cursor: pointer;
+}
+
+.node-clickable::after {
+    content: '⤢';
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.node-clickable:hover::after {
+    opacity: 0.9;
+}
+
+/* Loading spinner inside a node while its upstreams are fetched */
+.node-loading {
+    cursor: progress;
+}
+
+.node-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border-primary);
+    border-top-color: var(--accent-cyan);
+    animation: rotate 0.8s linear infinite;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* ============================================
    IP Node Styles
    ============================================ */
 .node-ip {
@@ -504,6 +564,18 @@
 .node-prefix-rir {
     font-size: 10px;
     color: var(--text-tertiary);
+}
+
+/* ============================================
+   React Flow MiniMap custom styles
+   ============================================ */
+.react-flow-minimap-custom {
+    background: var(--bg-glass) !important;
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
 }
 
 /* ============================================

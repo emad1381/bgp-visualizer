@@ -3,11 +3,12 @@
  * Interactive graph visualization using React Flow
  */
 
-import { useMemo } from 'react';
+import { useEffect } from 'react';
 import {
     ReactFlow,
     Controls,
     Background,
+    MiniMap,
     useNodesState,
     useEdgesState,
     BackgroundVariant,
@@ -28,15 +29,26 @@ export default function BGPGraph({ graphData, onNodeClick, loadingNodes }) {
     const [nodes, setNodes, onNodesChange] = useNodesState(graphData?.nodes || []);
     const [edges, setEdges, onEdgesChange] = useEdgesState(graphData?.edges || []);
 
-    // Update nodes when graphData changes
-    useMemo(() => {
+    // Update nodes/edges when a new search provides graphData.
+    // Must be an effect, not useMemo: setState inside useMemo is a side effect
+    // and runs during render, which React can re-invoke (double-invoke in dev).
+    useEffect(() => {
         if (graphData?.nodes) {
-            setNodes(graphData.nodes);
+            // Mark nodes whose upstreams are being fetched, so their
+            // custom node component can show a loading spinner
+            const withLoading = graphData.nodes.map(n => ({
+                ...n,
+                data: {
+                    ...n.data,
+                    loading: loadingNodes?.has(String(n.data?.asn)),
+                },
+            }));
+            setNodes(withLoading);
         }
         if (graphData?.edges) {
             setEdges(graphData.edges);
         }
-    }, [graphData, setNodes, setEdges]);
+    }, [graphData, loadingNodes, setNodes, setEdges]);
 
     // Empty state
     if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
@@ -72,6 +84,10 @@ export default function BGPGraph({ graphData, onNodeClick, loadingNodes }) {
                 maxZoom={2}
                 defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
                 proOptions={{ hideAttribution: true }}
+                nodesDraggable
+                nodesConnectable={false}
+                panOnScroll
+                zoomOnDoubleClick={false}
                 defaultEdgeOptions={{
                     animated: false,
                     style: { stroke: '#64748b', strokeWidth: 2 },
@@ -82,6 +98,25 @@ export default function BGPGraph({ graphData, onNodeClick, loadingNodes }) {
                     gap={20}
                     size={1}
                     color="rgba(148, 163, 184, 0.1)"
+                />
+                <MiniMap
+                    pannable
+                    zoomable
+                    nodeColor={(node) => {
+                        // Color-code minimap nodes by type for quick orientation
+                        const colors = {
+                            ipNode: '#6366f1',
+                            asNode: '#8b5cf6',
+                            upstreamNode: '#10b981',
+                            peerNode: '#f59e0b',
+                            geoNode: '#f43f5e',
+                            prefixNode: '#22d3ee',
+                        };
+                        return colors[node.type] || '#64748b';
+                    }}
+                    nodeStrokeWidth={2}
+                    maskColor="rgba(5, 5, 8, 0.6)"
+                    className="react-flow-minimap-custom"
                 />
                 <Controls />
             </ReactFlow>

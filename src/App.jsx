@@ -8,7 +8,7 @@ import { Activity, Zap, Sun, Moon } from 'lucide-react';
 import SearchBar from './components/SearchBar/SearchBar';
 import BGPGraph from './components/BGPGraph/BGPGraph';
 import InfoPanel from './components/InfoPanel/InfoPanel';
-import { getCompleteBGPData, generateGraphData, fetchASUpstreams } from './services/bgpService';
+import { fetchASUpstreams, autoLayoutNodes } from './services/bgpService';
 import './App.css';
 
 export default function App() {
@@ -162,11 +162,14 @@ export default function App() {
         });
       });
 
-      // Add new nodes and edges to graph
-      setGraphData(prev => ({
-        nodes: [...prev.nodes, ...newNodes],
-        edges: [...prev.edges, ...newEdges],
-      }));
+      // Add new nodes and edges to graph, then re-layout to avoid overlaps
+      setGraphData(prev => {
+        const merged = {
+          nodes: [...prev.nodes, ...newNodes],
+          edges: [...prev.edges, ...newEdges],
+        };
+        return { ...merged, nodes: autoLayoutNodes(merged.nodes) };
+      });
 
       // Mark as explored
       setExploredNodes(prev => new Set([...prev, asn]));
@@ -268,6 +271,7 @@ export default function App() {
             </div>
           ) : (
             <BGPGraph
+              key={bgpData?.ip || 'empty'}
               graphData={graphData}
               onNodeClick={handleNodeClick}
               loadingNodes={loadingNodes}

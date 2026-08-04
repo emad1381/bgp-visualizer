@@ -116,12 +116,13 @@ export default function SearchBar({ onSearch, isLoading }) {
                     ref={inputRef}
                     type="text"
                     className="search-bar-input"
-                    placeholder="Enter IP or Domain (e.g., 8.8.8.8 or google.com)"
+                    placeholder="Enter IP or Domain (e.g., 8.8.8.8)"
                     value={value}
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
                     onFocus={() => setShowDropdown(true)}
                     disabled={isLoading}
+                    aria-label="IP address or domain search"
                 />
 
                 {value && (

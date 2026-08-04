@@ -930,6 +930,50 @@ export async function getCompleteBGPData(ip) {
 }
 
 /**
+ * Apply a lightweight auto-layout to graph nodes.
+ * Re-positions nodes into tidy columns so deep exploration graphs
+ * don't overlap into a mess. The root row (ip / prefix / geo) stays
+ * anchored; everything else stacks upward from it:
+ *   peers left  ·  main chain center  ·  backups right
+ * @param {Array} nodes - React Flow nodes (with .position)
+ * @returns {Array} nodes with updated positions
+ */
+export function autoLayoutNodes(nodes) {
+  const NODE_H = 120;  // vertical step between nodes
+  const COL_W = 340;   // horizontal step between columns
+
+  const positioned = nodes.map(n => ({ ...n, position: { ...n.position } }));
+
+  // Anchor the root row
+  const roots = new Set(['ip', 'prefix', 'geo']);
+  const rootY = positioned
+    .filter(n => roots.has(n.id))
+    .reduce((minY, n) => Math.min(minY, n.position.y), Infinity);
+  const baseY = Number.isFinite(rootY) ? rootY : 0;
+
+  // Assign columns: peers left, main chain center, backups right
+  const columns = [[], [], []];
+  positioned.forEach(n => {
+    if (roots.has(n.id)) return;
+    let col = 1;
+    if (n.type === 'peerNode') col = 0;
+    if (n.type === 'upstreamNode' && (n.data?.isBackup || n.data?.hasPrepending)) col = 2;
+    columns[col].push(n);
+  });
+
+  // Stack each column upward from the root row
+  columns.forEach((colNodes, col) => {
+    let y = baseY - NODE_H;
+    colNodes.forEach(n => {
+      n.position = { x: 500 + (col - 1) * COL_W, y };
+      y -= NODE_H;
+    });
+  });
+
+  return positioned;
+}
+
+/**
  * Generate graph data for React Flow
  * NEW LAYOUT: Vertical tower showing full AS path chain to Tier-1
  * No overlapping - proper spacing for all nodes
