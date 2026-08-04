@@ -8,6 +8,7 @@ const API_ENDPOINTS = {
   RIPESTAT_NETWORK: 'https://stat.ripe.net/data/network-info/data.json',
   RIPESTAT_AS_OVERVIEW: 'https://stat.ripe.net/data/as-overview/data.json',
   RIPESTAT_ASN_NEIGHBOURS: 'https://stat.ripe.net/data/asn-neighbours/data.json',
+  RIPESTAT_ANNOUNCED_PREFIXES: 'https://stat.ripe.net/data/announced-prefixes/data.json',
   RIPESTAT_LOOKING_GLASS: 'https://stat.ripe.net/data/looking-glass/data.json',
   RIPESTAT_BGP_STATE: 'https://stat.ripe.net/data/bgp-state/data.json',
   IP_API: 'https://ip-api.com/json', // HTTPS! http:// gets blocked by browsers on HTTPS pages (mixed content)
@@ -332,6 +333,89 @@ export async function fetchASUpstreams(asn) {
 }
 
 /**
+ * Try to extract a 2-letter country code from an AS holder name.
+ * RIPE-region holders follow "NAME-XX" convention (e.g. ARVANCLOUD-CDN-IR).
+ * @param {string} holder - AS holder name
+ * @returns {string|null} - ISO country code or null
+ */
+function countryFromHolder(holder) {
+  if (!holder) return null;
+  // Matches trailing "-XX" (exactly 2 uppercase letters after a dash)
+  const m = holder.match(/-([A-Z]{2})$/);
+  return m ? m[1] : null;
+}
+
+// Simple in-memory cache for resolved ASN -> country (avoids re-fetching)
+const asCountryCache = new Map();
+
+/**
+ * Resolve the country of an ASN by geolocating a few of its announced
+ * prefixes via ipwho.is, and picking the most common country.
+ * @param {number|string} asn - AS Number
+ * @returns {Promise<string|null>} - ISO country code
+ */
+async function getASCountryFromPrefixes(asn) {
+  const key = String(asn);
+  if (asCountryCache.has(key)) return asCountryCache.get(key);
+
+  try {
+    // 1. Get up to 4 announced IPv4 prefixes for this ASN
+    const prefixesData = await fetchWithTimeout(
+      `${API_ENDPOINTS.RIPESTAT_ANNOUNCED_PREFIXES}?resource=AS${key}`,
+      5000
+    );
+    const prefixes = (prefixesData?.data?.prefixes || [])
+      .map(p => p.prefix)
+      .filter(p => p && p.includes('.')) // IPv4 only
+      .slice(0, 4);
+
+    if (prefixes.length === 0) {
+      asCountryCache.set(key, null);
+      return null;
+    }
+
+    // 2. Geolocate each prefix's first IP
+    const results = await Promise.allSettled(
+      prefixes.map(prefix =>
+        fetchWithTimeout(`https://ipwho.is/${prefix.split('/')[0]}`, 5000)
+      )
+    );
+
+    // 3. Pick the most common country code (mode)
+    const counts = {};
+    results.forEach(r => {
+      if (r.status === 'fulfilled' && r.value?.success && r.value.country_code) {
+        counts[r.value.country_code] = (counts[r.value.country_code] || 0) + 1;
+      }
+    });
+
+    let best = null, bestCount = 0;
+    Object.entries(counts).forEach(([cc, count]) => {
+      if (count > bestCount) { best = cc; bestCount = count; }
+    });
+
+    asCountryCache.set(key, best);
+    return best;
+  } catch {
+    asCountryCache.set(key, null);
+    return null;
+  }
+}
+
+/**
+ * Resolve a country code for an ASN, best effort:
+ * 1. Known dictionary (fast, no API)
+ * 2. Country code from announced prefixes via ipwho.is (accurate)
+ * @param {number|string} asn - AS Number
+ * @returns {Promise<string|null>} - ISO country code
+ */
+async function resolveASCountry(asn) {
+  const fromDict = getKnownASCountry(asn);
+  if (fromDict) return fromDict;
+  return getASCountryFromPrefixes(asn);
+}
+
+/**
  * Get ASN neighbours (upstreams/peers) from RIPEstat
  * Also fetches AS names for each neighbour
  * @param {number} asn - AS Number
@@ -378,7 +462,8 @@ export async function getASNNeighbours(asn) {
           name: holder,
           power: n.power,
           type: n.type,
-          countryCode: getKnownASCountry(n.asn), // Add country code fallback
+          // Country: known dict first, else via announced prefixes
+          countryCode: await resolveASCountry(n.asn),
         };
       } catch {
         return {
@@ -386,7 +471,7 @@ export async function getASNNeighbours(asn) {
           name: KNOWN_TIER1_ASNS[String(n.asn)] || `AS${n.asn}`,
           power: n.power,
           type: n.type,
-          countryCode: getKnownASCountry(n.asn), // Add country code fallback
+          countryCode: getKnownASCountry(n.asn),
         };
       }
     });
@@ -407,7 +492,7 @@ export async function getASNNeighbours(asn) {
           name: holder,
           power: n.power,
           type: n.type,
-          countryCode: getKnownASCountry(n.asn), // Add country code fallback
+          countryCode: await resolveASCountry(n.asn),
         };
       } catch {
         return {
@@ -415,7 +500,7 @@ export async function getASNNeighbours(asn) {
           name: KNOWN_TIER1_ASNS[String(n.asn)] || `AS${n.asn}`,
           power: n.power,
           type: n.type,
-          countryCode: getKnownASCountry(n.asn), // Add country code fallback
+          countryCode: getKnownASCountry(n.asn),
         };
       }
     });
@@ -614,24 +699,9 @@ async function resolveChainNames(chain) {
         4000
       );
 
-      // Get country code from the AS info or use known Tier-1 countries
-      let countryCode = null;
-
-      // Try to extract country from holder name (common patterns)
+      // Country: known dict first, else via announced prefixes
       const holder = data?.data?.holder || '';
-      if (holder.includes(' - ')) {
-        // Check for country patterns in the name
-        const parts = holder.split(' - ');
-        const lastPart = parts[parts.length - 1];
-        if (lastPart && lastPart.length === 2) {
-          countryCode = lastPart.toUpperCase();
-        }
-      }
-
-      // Known Tier-1 countries
-      if (!countryCode) {
-        countryCode = getTier1Country(asn);
-      }
+      const countryCode = await resolveASCountry(asn);
 
       return {
         asn,
