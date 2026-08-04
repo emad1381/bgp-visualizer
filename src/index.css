@@ -1,54 +1,54 @@
 /* ============================================
    BGP Visualizer - Global Styles
-   Professional Dark Theme with Glassmorphism
+   "Signal" design system — clean, technical, confident.
+   Single accent, off-black surfaces, no AI-gradient.
    ============================================ */
 
 /* CSS Custom Properties - Design System */
 :root {
-  /* Background Colors */
-  --bg-primary: #050508;
-  --bg-secondary: #0a0a10;
-  --bg-tertiary: #10101a;
-  --bg-glass: rgba(255, 255, 255, 0.03);
-  --bg-glass-hover: rgba(255, 255, 255, 0.06);
+  /* Background Colors — off-black with a cool blue tint, not pure #000 */
+  --bg-primary: #07090d;
+  --bg-secondary: #0c1017;
+  --bg-tertiary: #121722;
+  --bg-glass: rgba(148, 163, 184, 0.05);
+  --bg-glass-hover: rgba(148, 163, 184, 0.09);
 
-  /* Accent Colors */
-  --accent-primary: #6366f1;
-  --accent-primary-light: #818cf8;
-  --accent-secondary: #8b5cf6;
-  --accent-tertiary: #a855f7;
+  /* Accent Colors — ONE accent: teal/cyan. Status colors stay muted. */
+  --accent-primary: #2dd4bf;
+  --accent-primary-light: #5eead4;
+  --accent-strong: #14b8a6;
   --accent-cyan: #22d3ee;
-  --accent-emerald: #10b981;
-  --accent-amber: #f59e0b;
-  --accent-rose: #f43f5e;
+  --accent-emerald: #34d399;
+  --accent-amber: #fbbf24;
+  --accent-rose: #fb7185;
+  --accent-violet: #a78bfa;
 
   /* Text Colors */
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
+  --text-primary: #e7edf4;
+  --text-secondary: #9aa7b8;
   --text-tertiary: #64748b;
   --text-muted: #475569;
 
   /* Border Colors */
-  --border-primary: rgba(255, 255, 255, 0.08);
-  --border-secondary: rgba(255, 255, 255, 0.04);
-  --border-accent: rgba(99, 102, 241, 0.3);
+  --border-primary: rgba(148, 163, 184, 0.14);
+  --border-secondary: rgba(148, 163, 184, 0.07);
+  --border-accent: rgba(45, 212, 191, 0.35);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
-  --shadow-glow-cyan: 0 0 30px rgba(34, 211, 238, 0.2);
+  /* Shadows — tinted with background hue, never pure black */
+  --shadow-sm: 0 1px 2px rgba(4, 6, 10, 0.6);
+  --shadow-md: 0 4px 12px rgba(4, 6, 10, 0.5);
+  --shadow-lg: 0 12px 32px rgba(4, 6, 10, 0.55);
+  --shadow-glow: 0 0 40px rgba(45, 212, 191, 0.12);
+  --shadow-glow-cyan: 0 0 30px rgba(34, 211, 238, 0.15);
 
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
-  --gradient-secondary: linear-gradient(135deg, #22d3ee 0%, #6366f1 100%);
-  --gradient-dark: linear-gradient(180deg, #0a0a10 0%, #050508 100%);
-  --gradient-radial: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+  /* Gradients — subtle, single-hue, not the purple AI gradient */
+  --gradient-primary: linear-gradient(135deg, #0d9488 0%, #14b8a6 55%, #2dd4bf 100%);
+  --gradient-dark: linear-gradient(180deg, #0c1017 0%, #07090d 100%);
+  --gradient-radial: radial-gradient(ellipse at center, rgba(45, 212, 191, 0.07) 0%, transparent 70%);
 
   /* Typography */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-family: 'Space Grotesk', 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', 'Fira Code', monospace;
 
   /* Spacing */
   --spacing-xs: 4px;
@@ -58,11 +58,11 @@
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
 
-  /* Border Radius */
+  /* Border Radius — vary: tighter inside, softer on containers */
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-lg: 18px;
+  --radius-xl: 28px;
   --radius-full: 9999px;
 
   /* Transitions */
@@ -75,6 +75,9 @@
   --z-dropdown: 100;
   --z-modal: 1000;
   --z-tooltip: 10000;
+
+  /* Data tables & numbers */
+  font-variant-numeric: tabular-nums;
 }
 
 /* ============================================
@@ -82,11 +85,11 @@
    ============================================ */
 [data-theme="light"] {
   /* Background Colors - Light */
-  --bg-primary: #f8fafc;
+  --bg-primary: #f5f7fa;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-  --bg-glass: rgba(255, 255, 255, 0.8);
-  --bg-glass-hover: rgba(255, 255, 255, 0.95);
+  --bg-tertiary: #eef1f6;
+  --bg-glass: rgba(15, 23, 42, 0.04);
+  --bg-glass-hover: rgba(15, 23, 42, 0.07);
 
   /* Text Colors - Light */
   --text-primary: #0f172a;
@@ -95,20 +98,21 @@
   --text-muted: #94a3b8;
 
   /* Border Colors - Light */
-  --border-primary: rgba(0, 0, 0, 0.1);
-  --border-secondary: rgba(0, 0, 0, 0.05);
-  --border-accent: rgba(99, 102, 241, 0.4);
+  --border-primary: rgba(15, 23, 42, 0.12);
+  --border-secondary: rgba(15, 23, 42, 0.06);
+  --border-accent: rgba(13, 148, 136, 0.4);
 
-  /* Shadows - Light */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.2);
-  --shadow-glow-cyan: 0 0 30px rgba(34, 211, 238, 0.25);
+  /* Shadows - Light (tinted, not pure black) */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.1);
+  --shadow-glow: 0 0 40px rgba(13, 148, 136, 0.15);
+  --shadow-glow-cyan: 0 0 30px rgba(34, 211, 238, 0.2);
 
   /* Gradients - Light */
-  --gradient-dark: linear-gradient(180deg, #f1f5f9 0%, #f8fafc 100%);
-  --gradient-radial: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+  --gradient-primary: linear-gradient(135deg, #0d9488 0%, #14b8a6 55%, #2dd4bf 100%);
+  --gradient-dark: linear-gradient(180deg, #eef1f6 0%, #f5f7fa 100%);
+  --gradient-radial: radial-gradient(ellipse at center, rgba(13, 148, 136, 0.08) 0%, transparent 70%);
 }
 
 /* ============================================
@@ -159,8 +163,8 @@
   }
 }
 
-/* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* Import Google Fonts — Space Grotesk (display) + IBM Plex Mono (data) */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 /* Reset & Base */
 *,
@@ -184,6 +188,17 @@ body {
   line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers everywhere align in tables/data via tabular figures */
+.mono,
+code,
+pre,
+.asn-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 #root {

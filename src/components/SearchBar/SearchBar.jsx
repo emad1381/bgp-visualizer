@@ -5,7 +5,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Search, X, Clock, ArrowRight, Loader2 } from 'lucide-react';
-import { validateIP } from '../../services/bgpService';
 import './SearchBar.css';
 
 // Sample IPs for quick access
@@ -31,9 +30,11 @@ export default function SearchBar({ onSearch, isLoading }) {
     const dropdownRef = useRef(null);
 
     // Load history from localStorage
+    // (intentional: read once on mount)
     useEffect(() => {
         const savedHistory = localStorage.getItem('bgp-search-history');
         if (savedHistory) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init
             setHistory(JSON.parse(savedHistory));
         }
     }, []);
@@ -116,12 +117,13 @@ export default function SearchBar({ onSearch, isLoading }) {
                     ref={inputRef}
                     type="text"
                     className="search-bar-input"
-                    placeholder="Enter IP or Domain (e.g., 8.8.8.8 or google.com)"
+                    placeholder="Enter IP or Domain (e.g., 8.8.8.8)"
                     value={value}
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
                     onFocus={() => setShowDropdown(true)}
                     disabled={isLoading}
+                    aria-label="IP address or domain search"
                 />
 
                 {value && (

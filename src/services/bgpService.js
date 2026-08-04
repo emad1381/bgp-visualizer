@@ -8,9 +8,10 @@ const API_ENDPOINTS = {
   RIPESTAT_NETWORK: 'https://stat.ripe.net/data/network-info/data.json',
   RIPESTAT_AS_OVERVIEW: 'https://stat.ripe.net/data/as-overview/data.json',
   RIPESTAT_ASN_NEIGHBOURS: 'https://stat.ripe.net/data/asn-neighbours/data.json',
+  RIPESTAT_ANNOUNCED_PREFIXES: 'https://stat.ripe.net/data/announced-prefixes/data.json',
   RIPESTAT_LOOKING_GLASS: 'https://stat.ripe.net/data/looking-glass/data.json',
   RIPESTAT_BGP_STATE: 'https://stat.ripe.net/data/bgp-state/data.json',
-  IP_API: 'http://ip-api.com/json',
+  IP_API: 'https://ip-api.com/json', // HTTPS! http:// gets blocked by browsers on HTTPS pages (mixed content)
 };
 
 // Known ASN to Country Code mapping for major providers
@@ -114,59 +115,71 @@ const KNOWN_TIER1_ASNS = {
 };
 
 /**
- * Robust AS Name Fetcher
- * STEP 1: Check local dictionary (instant)
- * STEP 2: Fetch from RIPEstat API
- * STEP 3: Return null if both fail
- * @param {number|string} asn - AS Number
- * @returns {Promise<string|null>} - AS Name or null
- */
-const fetchASName = async (asn) => {
-  // FORCE convert to string for reliable dictionary lookup
-  const asnStr = String(asn).trim();
-
-  // STEP 1: Dictionary check FIRST (no API call)
-  if (KNOWN_TIER1_ASNS[asnStr]) {
-    console.log(`[Cache Hit] AS${asnStr}: ${KNOWN_TIER1_ASNS[asnStr]}`);
-    return KNOWN_TIER1_ASNS[asnStr];
-  }
-
-  // STEP 2: API fetch if not in dictionary
-  try {
-    const response = await fetchWithTimeout(
-      `${API_ENDPOINTS.RIPESTAT_AS_OVERVIEW}?resource=AS${asnStr}`,
-      5000
-    );
-    const holder = response?.data?.holder;
-
-    if (holder) {
-      console.log(`[API Hit] AS${asnStr}: ${holder}`);
-      return holder;
-    }
-  } catch (error) {
-    console.warn(`[API Miss] AS${asnStr}: ${error.message}`);
-  }
-
-  // STEP 3: Return null (caller handles fallback)
-  return null;
-};
-
-/**
  * Validate IP address format
  * @param {string} ip - IP address to validate
  * @returns {object} - { valid: boolean, type: 'ipv4' | 'ipv6' | null }
  */
 export function validateIP(ip) {
   const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-  const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$|^(?:[0-9a-fA-F]{1,4}:){0,6}::(?:[0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4}$/;
 
   if (ipv4Regex.test(ip)) {
     return { valid: true, type: 'ipv4' };
   }
-  if (ipv6Regex.test(ip)) {
+  if (isValidIPv6(ip)) {
     return { valid: true, type: 'ipv6' };
   }
   return { valid: false, type: null };
+}
+
+/**
+ * Validate an IPv6 address using a structural parse (handles "::"
+ * compression anywhere, full form, and embedded IPv4).
+ * @param {string} ip - Address to check
+ * @returns {boolean}
+ */
+function isValidIPv6(ip) {
+  if (!ip || typeof ip !== 'string') return false;
+  let addr = ip.trim();
+  if (addr.length === 0 || addr.length > 45) return false;
+
+  const H = (s) => /^[0-9a-fA-F]{1,4}$/.test(s);       // 1-4 hex digits
+  const V4 = (s) => /^(\d{1,3}\.){3}\d{1,3}$/.test(s) && s.split('.').every(o => Number(o) <= 255);
+
+  // Count "::" — at most one allowed
+  const dbl = addr.split('::');
+  if (dbl.length > 2) return false;
+
+  if (dbl.length === 2) {
+    const left = dbl[0], right = dbl[1];
+    // A side of "::" may be empty ("::1", "2001:db8::") or end with a
+    // single colon in the special "last group compressed" forms, but
+    // never contain "::" itself (already ensured by split).
+    if (left.includes('::') || right.includes('::')) return false;
+    // Reject stray colons that would create empty groups ("2001:::1").
+    // The "::" split already consumed one colon per side; any OTHER
+    // leading/trailing colon on a non-empty side means an empty group.
+    const sideValid = (s) => {
+      if (s === '') return true;             // the "::" side itself
+      if (s.startsWith(':') || s.endsWith(':')) return false; // ":::x" or "x:::"
+      return s.split(':').every(Boolean);    // no empty groups inside
+    };
+    if (!sideValid(left) || !sideValid(right)) return false;
+    const L = left.replace(/^:|:$/g, '');
+    const R = right.replace(/^:|:$/g, '');
+    // Embedded IPv4 occupies one group
+    let lParts = L ? L.split(':') : [];
+    let rParts = R ? R.split(':') : [];
+    if (lParts.length && V4(lParts[lParts.length - 1])) lParts.pop();
+    if (rParts.length && V4(rParts[rParts.length - 1])) rParts.pop();
+    if (lParts.length + rParts.length >= 8) return false; // too many groups
+    return lParts.every(H) && rParts.every(H);
+  }
+
+  // No "::" — full form must have exactly 8 groups
+  const parts = addr.split(':');
+  if (parts.length !== 8) return false;
+  if (V4(parts[parts.length - 1])) parts.pop();
+  return parts.every(H);
 }
 
 /**
@@ -333,6 +346,76 @@ export async function fetchASUpstreams(asn) {
   }
 }
 
+// Simple in-memory cache for resolved ASN -> country (avoids re-fetching)
+const asCountryCache = new Map();
+
+/**
+ * Resolve the country of an ASN by geolocating a few of its announced
+ * prefixes via ipwho.is, and picking the most common country.
+ * @param {number|string} asn - AS Number
+ * @returns {Promise<string|null>} - ISO country code
+ */
+async function getASCountryFromPrefixes(asn) {
+  const key = String(asn);
+  if (asCountryCache.has(key)) return asCountryCache.get(key);
+
+  try {
+    // 1. Get up to 4 announced IPv4 prefixes for this ASN
+    const prefixesData = await fetchWithTimeout(
+      `${API_ENDPOINTS.RIPESTAT_ANNOUNCED_PREFIXES}?resource=AS${key}`,
+      5000
+    );
+    const prefixes = (prefixesData?.data?.prefixes || [])
+      .map(p => p.prefix)
+      .filter(p => p && p.includes('.')) // IPv4 only
+      .slice(0, 4);
+
+    if (prefixes.length === 0) {
+      asCountryCache.set(key, null);
+      return null;
+    }
+
+    // 2. Geolocate each prefix's first IP
+    const results = await Promise.allSettled(
+      prefixes.map(prefix =>
+        fetchWithTimeout(`https://ipwho.is/${prefix.split('/')[0]}`, 5000)
+      )
+    );
+
+    // 3. Pick the most common country code (mode)
+    const counts = {};
+    results.forEach(r => {
+      if (r.status === 'fulfilled' && r.value?.success && r.value.country_code) {
+        counts[r.value.country_code] = (counts[r.value.country_code] || 0) + 1;
+      }
+    });
+
+    let best = null, bestCount = 0;
+    Object.entries(counts).forEach(([cc, count]) => {
+      if (count > bestCount) { best = cc; bestCount = count; }
+    });
+
+    asCountryCache.set(key, best);
+    return best;
+  } catch {
+    asCountryCache.set(key, null);
+    return null;
+  }
+}
+
+/**
+ * Resolve a country code for an ASN, best effort:
+ * 1. Known dictionary (fast, no API)
+ * 2. Country code from announced prefixes via ipwho.is (accurate)
+ * @param {number|string} asn - AS Number
+ * @returns {Promise<string|null>} - ISO country code
+ */
+async function resolveASCountry(asn) {
+  const fromDict = getKnownASCountry(asn);
+  if (fromDict) return fromDict;
+  return getASCountryFromPrefixes(asn);
+}
+
 /**
  * Get ASN neighbours (upstreams/peers) from RIPEstat
  * Also fetches AS names for each neighbour
@@ -349,13 +432,20 @@ export async function getASNNeighbours(asn) {
 
     const neighbours = data.data.neighbours || [];
 
-    // Classify neighbours - higher power = more likely upstream
-    // "left" type usually means upstream, "right" means downstream
-    const sorted = [...neighbours].sort((a, b) => (b.power || 0) - (a.power || 0));
+    // Classify neighbours by RIPEstat relationship:
+    //   - type "upstream" (the neighbour announces the resource to us) = upstream
+    //   - type "downstream" (we announce to them) = downstream — skip
+    //   - type "peer" / "lateral" = peer
+    let upstreamASNs = neighbours.filter(n => n.type === 'upstream').slice(0, 8);
+    let peerASNs = neighbours.filter(n => n.type === 'peer' || n.type === 'lateral').slice(0, 6);
 
-    // Top 5 by power are likely upstreams, next are peers
-    const upstreamASNs = sorted.slice(0, 8); // Increased to 8 for better graph
-    const peerASNs = sorted.slice(5, 10);
+    // If RIPEstat gave no type info (fallback), keep the previous heuristic:
+    // higher power = more likely upstream
+    if (upstreamASNs.length === 0 && peerASNs.length === 0) {
+      const sorted = [...neighbours].sort((a, b) => (b.power || 0) - (a.power || 0));
+      upstreamASNs = sorted.slice(0, 8);
+      peerASNs = sorted.slice(8, 12);
+    }
 
     // Fetch AS names for upstreams in parallel
     const upstreamPromises = upstreamASNs.map(async (n) => {
@@ -373,7 +463,8 @@ export async function getASNNeighbours(asn) {
           name: holder,
           power: n.power,
           type: n.type,
-          countryCode: getKnownASCountry(n.asn), // Add country code fallback
+          // Country: known dict first, else via announced prefixes
+          countryCode: await resolveASCountry(n.asn),
         };
       } catch {
         return {
@@ -381,7 +472,7 @@ export async function getASNNeighbours(asn) {
           name: KNOWN_TIER1_ASNS[String(n.asn)] || `AS${n.asn}`,
           power: n.power,
           type: n.type,
-          countryCode: getKnownASCountry(n.asn), // Add country code fallback
+          countryCode: getKnownASCountry(n.asn),
         };
       }
     });
@@ -402,7 +493,7 @@ export async function getASNNeighbours(asn) {
           name: holder,
           power: n.power,
           type: n.type,
-          countryCode: getKnownASCountry(n.asn), // Add country code fallback
+          countryCode: await resolveASCountry(n.asn),
         };
       } catch {
         return {
@@ -410,7 +501,7 @@ export async function getASNNeighbours(asn) {
           name: KNOWN_TIER1_ASNS[String(n.asn)] || `AS${n.asn}`,
           power: n.power,
           type: n.type,
-          countryCode: getKnownASCountry(n.asn), // Add country code fallback
+          countryCode: getKnownASCountry(n.asn),
         };
       }
     });
@@ -433,34 +524,57 @@ export async function getASNNeighbours(asn) {
 
 /**
  * Get geolocation data
+ * Tries ip-api first; falls back to ipwho.is (free, CORS-enabled) when
+ * ip-api rejects the request (403 on free HTTPS plans or browser CORS).
  * @param {string} ip - IP address
- * @returns {Promise<object>} - Geolocation data
+ * @returns {Promise<object|null>} - Geolocation data
  */
 export async function getGeolocation(ip) {
+  // Primary: ip-api
   try {
     const data = await fetchWithTimeout(`${API_ENDPOINTS.IP_API}/${ip}?fields=status,message,country,countryCode,region,regionName,city,lat,lon,timezone,isp,org,as`);
 
-    if (data.status !== 'success') {
-      console.warn('Geolocation failed:', data.message);
-      return null;
+    if (data.status === 'success') {
+      return {
+        country: data.country,
+        countryCode: data.countryCode,
+        region: data.regionName,
+        city: data.city,
+        lat: data.lat,
+        lon: data.lon,
+        timezone: data.timezone,
+        isp: data.isp,
+        org: data.org,
+        as: data.as,
+      };
     }
-
-    return {
-      country: data.country,
-      countryCode: data.countryCode,
-      region: data.regionName,
-      city: data.city,
-      lat: data.lat,
-      lon: data.lon,
-      timezone: data.timezone,
-      isp: data.isp,
-      org: data.org,
-      as: data.as,
-    };
+    console.warn('ip-api geolocation failed:', data.message);
   } catch (error) {
-    console.error('Geolocation fetch error:', error);
-    return null;
+    console.warn('ip-api geolocation error:', error.message);
   }
+
+  // Fallback: ipwho.is (free, HTTPS, CORS-friendly)
+  try {
+    const fallback = await fetchWithTimeout(`https://ipwho.is/${ip}`, 6000);
+    if (fallback && fallback.success) {
+      return {
+        country: fallback.country,
+        countryCode: fallback.country_code,
+        region: fallback.region || fallback.state,
+        city: fallback.city,
+        lat: fallback.latitude,
+        lon: fallback.longitude,
+        timezone: fallback.timezone?.id,
+        isp: fallback.connection?.isp,
+        org: fallback.connection?.org,
+        as: fallback.connection?.asn ? `AS${fallback.connection.asn}` : null,
+      };
+    }
+  } catch (error) {
+    console.warn('ipwho.is geolocation error:', error.message);
+  }
+
+  return null;
 }
 
 /**
@@ -586,24 +700,9 @@ async function resolveChainNames(chain) {
         4000
       );
 
-      // Get country code from the AS info or use known Tier-1 countries
-      let countryCode = null;
-
-      // Try to extract country from holder name (common patterns)
+      // Country: known dict first, else via announced prefixes
       const holder = data?.data?.holder || '';
-      if (holder.includes(' - ')) {
-        // Check for country patterns in the name
-        const parts = holder.split(' - ');
-        const lastPart = parts[parts.length - 1];
-        if (lastPart && lastPart.length === 2) {
-          countryCode = lastPart.toUpperCase();
-        }
-      }
-
-      // Known Tier-1 countries
-      if (!countryCode) {
-        countryCode = getTier1Country(asn);
-      }
+      const countryCode = await resolveASCountry(asn);
 
       return {
         asn,
@@ -884,13 +983,16 @@ export async function getCompleteBGPData(ip) {
   const countryCode = asOverview.countryCode || geolocation?.countryCode || null;
 
   // **STRICT LOADING POLICY:**
-  // Merge path analysis into upstreams and ensure ALL data is hydrated
+  // Merge path analysis into upstreams and ensure ALL data is hydrated.
+  // Guard against missing pathAnalysis (e.g. looking-glass timeout) so a
+  // slow API never crashes the whole search.
+  const upstreamInfo = pathAnalysis?.upstreamInfo || {};
   const upstreamsWithPathInfo = neighbours.upstreams.map(u => ({
     ...u,
-    isPrimary: pathAnalysis.upstreamInfo[u.asn]?.isPrimary || false,
-    isBackup: pathAnalysis.upstreamInfo[u.asn]?.isBackup || false,
-    isTier1: pathAnalysis.upstreamInfo[u.asn]?.isTier1 || false,
-    rank: pathAnalysis.upstreamInfo[u.asn]?.rank || 999,
+    isPrimary: upstreamInfo[u.asn]?.isPrimary || false,
+    isBackup: upstreamInfo[u.asn]?.isBackup || false,
+    isTier1: isTier1AS(u.asn), // tier-1 is a property of the AS itself, not the path
+    rank: upstreamInfo[u.asn]?.rank || 999,
     // Name and countryCode are ALREADY fetched in getASNNeighbours
     // This ensures 100% hydrated data before rendering
   }));

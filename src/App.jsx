@@ -8,7 +8,7 @@ import { Activity, Zap, Sun, Moon } from 'lucide-react';
 import SearchBar from './components/SearchBar/SearchBar';
 import BGPGraph from './components/BGPGraph/BGPGraph';
 import InfoPanel from './components/InfoPanel/InfoPanel';
-import { getCompleteBGPData, generateGraphData, fetchASUpstreams } from './services/bgpService';
+import { fetchASUpstreams } from './services/bgpService';
 import './App.css';
 
 export default function App() {
@@ -124,7 +124,17 @@ export default function App() {
       const newNodes = [];
       const newEdges = [];
 
+      // Skip ASNs already present in the graph (prevents duplicate keys
+      // and keeps the graph from re-adding existing nodes on every click)
+      const existingASNs = new Set();
+      graphData?.nodes?.forEach(n => {
+        if (n.data?.asn) existingASNs.add(String(n.data.asn));
+      });
+
       upstreams.forEach((upstream, index) => {
+        if (existingASNs.has(String(upstream.asn))) {
+          return; // already in graph — don't duplicate
+        }
         const upstreamNodeId = `upstream-${upstream.asn}-from-${asn}`;
 
         // Position new nodes above the clicked node
@@ -181,7 +191,7 @@ export default function App() {
         return updated;
       });
     }
-  }, [exploredNodes, loadingNodes]);
+  }, [exploredNodes, loadingNodes, graphData]);
 
   return (
     <div className="app">
@@ -259,15 +269,18 @@ export default function App() {
         <div className="app-graph">
           {isLoading ? (
             <div className="app-loading">
-              <div className="app-loading-spinner">
-                <div className="spinner-ring" />
-                <div className="spinner-ring" />
-                <div className="spinner-ring" />
+              <div className="app-loading-skeleton" aria-hidden="true">
+                <div className="skeleton-node skeleton-wide" />
+                <div className="skeleton-edge" />
+                <div className="skeleton-node" />
+                <div className="skeleton-edge" />
+                <div className="skeleton-node" />
               </div>
-              <span className="app-loading-text">Fetching BGP Data...</span>
+              <span className="app-loading-text">Fetching BGP data…</span>
             </div>
           ) : (
             <BGPGraph
+              key={bgpData?.ip || 'empty'}
               graphData={graphData}
               onNodeClick={handleNodeClick}
               loadingNodes={loadingNodes}
