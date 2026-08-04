@@ -102,6 +102,7 @@ export default function BGPGraph({ graphData, onNodeClick, loadingNodes }) {
                 <MiniMap
                     pannable
                     zoomable
+                    position="top-left"
                     nodeColor={(node) => {
                         // Color-code minimap nodes by type for quick orientation
                         const colors = {

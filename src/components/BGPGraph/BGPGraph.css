@@ -576,6 +576,8 @@
     border-radius: var(--radius-md);
     overflow: hidden;
     box-shadow: var(--shadow-lg);
+    top: 12px;
+    left: 12px;
 }
 
 /* ============================================
