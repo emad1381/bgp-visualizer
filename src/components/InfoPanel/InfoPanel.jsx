@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import Flag from 'react-world-flags';
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import './InfoPanel.css';
 
 /**
@@ -273,10 +272,12 @@ export default function InfoPanel({ data, panelCollapsed, onTogglePanel }) {
     const isLandscape = useOrientation();
 
     // Auto-expand when data changes on mobile
+    // (intentional: the bottom sheet must open when a new search lands)
     useEffect(() => {
         if (data && isMobile) {
             setExpanded(true);
         }
+         
     }, [data, isMobile]);
 
     // Toggle panel (desktop, tablet, landscape)
@@ -300,18 +301,6 @@ export default function InfoPanel({ data, panelCollapsed, onTogglePanel }) {
         setExpanded(!expanded);
     };
 
-    // Handle drag end - swipe to dismiss (mobile only)
-    const handleDragEnd = (event, info) => {
-        const threshold = 100;
-        const velocity = info.velocity.y;
-
-        if (info.offset.y > threshold || velocity > 500) {
-            setExpanded(false);
-        } else if (info.offset.y < -50 || velocity < -300) {
-            setExpanded(true);
-        }
-    };
-
     // Empty state
     if (!data) {
         return (
@@ -329,36 +318,30 @@ export default function InfoPanel({ data, panelCollapsed, onTogglePanel }) {
         return (
             <>
                 {/* Desktop Toggle Button */}
-                <motion.button
+                <button
                     className="panel-toggle-btn"
                     onClick={togglePanel}
-                    whileTap={{ scale: 0.95 }}
                     aria-label="Toggle Info Panel"
                     title={panelCollapsed ? 'Show Info Panel' : 'Hide Info Panel'}
                 >
-                    <motion.div
-                        animate={{ rotate: panelCollapsed ? 0 : 180 }}
-                        transition={{ duration: 0.3 }}
+                    <div
+                        className="toggle-icon-wrap"
+                        style={{ transform: `rotate(${panelCollapsed ? 0 : 180}deg)`, transition: 'transform 0.3s ease' }}
                     >
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <line x1="3" y1="6" x2="21" y2="6" />
                             <line x1="3" y1="12" x2="21" y2="12" />
                             <line x1="3" y1="18" x2="21" y2="18" />
                         </svg>
-                    </motion.div>
-                </motion.button>
+                    </div>
+                </button>
 
                 {/* Side Panel */}
-                <motion.div
+                <div
                     className="info-panel"
-                    initial={false}
-                    animate={{
-                        x: panelCollapsed ? 360 : 0
-                    }}
-                    transition={{
-                        type: "spring",
-                        damping: 25,
-                        stiffness: 300
+                    style={{
+                        transform: panelCollapsed ? 'translateX(360px)' : 'translateX(0)',
+                        transition: 'transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)',
                     }}
                 >
                     <div className="info-panel-header">
@@ -377,7 +360,7 @@ export default function InfoPanel({ data, panelCollapsed, onTogglePanel }) {
                         </div>
                     </div>
                     <PanelContent data={data} copied={copied} handleCopy={handleCopy} />
-                </motion.div>
+                </div>
             </>
         );
     }
@@ -387,35 +370,29 @@ export default function InfoPanel({ data, panelCollapsed, onTogglePanel }) {
         return (
             <>
                 {/* Landscape Toggle Button */}
-                <motion.button
+                <button
                     className="panel-toggle-btn landscape-toggle-btn"
                     onClick={togglePanel}
-                    whileTap={{ scale: 0.95 }}
                     aria-label="Toggle Info Panel"
                 >
-                    <motion.div
-                        animate={{ rotate: panelCollapsed ? 0 : 180 }}
-                        transition={{ duration: 0.3 }}
+                    <div
+                        className="toggle-icon-wrap"
+                        style={{ transform: `rotate(${panelCollapsed ? 0 : 180}deg)`, transition: 'transform 0.3s ease' }}
                     >
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <line x1="3" y1="6" x2="21" y2="6" />
                             <line x1="3" y1="12" x2="21" y2="12" />
                             <line x1="3" y1="18" x2="21" y2="18" />
                         </svg>
-                    </motion.div>
-                </motion.button>
+                    </div>
+                </button>
 
                 {/* Side Panel */}
-                <motion.div
+                <div
                     className="info-panel info-panel-landscape"
-                    initial={false}
-                    animate={{
-                        x: panelCollapsed ? 320 : 0
-                    }}
-                    transition={{
-                        type: "spring",
-                        damping: 25,
-                        stiffness: 300
+                    style={{
+                        transform: panelCollapsed ? 'translateX(320px)' : 'translateX(0)',
+                        transition: 'transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)',
                     }}
                 >
                     <div className="info-panel-header">
@@ -434,35 +411,22 @@ export default function InfoPanel({ data, panelCollapsed, onTogglePanel }) {
                         </div>
                     </div>
                     <PanelContent data={data} copied={copied} handleCopy={handleCopy} />
-                </motion.div>
+                </div>
             </>
         );
     }
 
-    // Mobile Portrait - Draggable Bottom Sheet with Sticky Handle
+    // Mobile Portrait - Bottom sheet with toggle (no drag, simple & reliable)
     return (
-        <motion.div
-            className="info-panel info-panel-mobile"
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.3 }}
-            dragTransition={{ bounceStiffness: 300, bounceDamping: 25 }}
-            onDragEnd={handleDragEnd}
-            initial={false}
-            animate={{
-                y: expanded ? 0 : `calc(100vh - 180px)`
-            }}
-            transition={{
-                type: "spring",
-                damping: 30,
-                stiffness: 400,
-                mass: 0.8
-            }}
+        <div
+            className={`info-panel info-panel-mobile ${expanded ? 'info-panel-mobile-expanded' : ''}`}
             style={{
-                touchAction: 'none'
+                transform: expanded ? 'translateY(0)' : 'translateY(calc(100vh - 180px))',
+                transition: 'transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)',
+                touchAction: 'pan-y',
             }}
         >
-            {/* Drag Handle - STICKY - Always visible */}
+            {/* Handle — tap to expand/collapse */}
             <div
                 className="info-panel-handle"
                 onClick={toggleExpand}
@@ -496,6 +460,6 @@ export default function InfoPanel({ data, panelCollapsed, onTogglePanel }) {
 
             {/* Content */}
             <PanelContent data={data} copied={copied} handleCopy={handleCopy} />
-        </motion.div>
+        </div>
     );
 }

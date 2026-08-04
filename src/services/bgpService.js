@@ -127,7 +127,6 @@ const fetchASName = async (asn) => {
 
   // STEP 1: Dictionary check FIRST (no API call)
   if (KNOWN_TIER1_ASNS[asnStr]) {
-    console.log(`[Cache Hit] AS${asnStr}: ${KNOWN_TIER1_ASNS[asnStr]}`);
     return KNOWN_TIER1_ASNS[asnStr];
   }
 
@@ -140,11 +139,10 @@ const fetchASName = async (asn) => {
     const holder = response?.data?.holder;
 
     if (holder) {
-      console.log(`[API Hit] AS${asnStr}: ${holder}`);
       return holder;
     }
-  } catch (error) {
-    console.warn(`[API Miss] AS${asnStr}: ${error.message}`);
+  } catch {
+    // silent — callers handle the fallback
   }
 
   // STEP 3: Return null (caller handles fallback)
@@ -349,13 +347,20 @@ export async function getASNNeighbours(asn) {
 
     const neighbours = data.data.neighbours || [];
 
-    // Classify neighbours - higher power = more likely upstream
-    // "left" type usually means upstream, "right" means downstream
-    const sorted = [...neighbours].sort((a, b) => (b.power || 0) - (a.power || 0));
+    // Classify neighbours by RIPEstat relationship:
+    //   - type "upstream" (the neighbour announces the resource to us) = upstream
+    //   - type "downstream" (we announce to them) = downstream — skip
+    //   - type "peer" / "lateral" = peer
+    let upstreamASNs = neighbours.filter(n => n.type === 'upstream').slice(0, 8);
+    let peerASNs = neighbours.filter(n => n.type === 'peer' || n.type === 'lateral').slice(0, 6);
 
-    // Top 5 by power are likely upstreams, next are peers
-    const upstreamASNs = sorted.slice(0, 8); // Increased to 8 for better graph
-    const peerASNs = sorted.slice(5, 10);
+    // If RIPEstat gave no type info (fallback), keep the previous heuristic:
+    // higher power = more likely upstream
+    if (upstreamASNs.length === 0 && peerASNs.length === 0) {
+      const sorted = [...neighbours].sort((a, b) => (b.power || 0) - (a.power || 0));
+      upstreamASNs = sorted.slice(0, 8);
+      peerASNs = sorted.slice(8, 12);
+    }
 
     // Fetch AS names for upstreams in parallel
     const upstreamPromises = upstreamASNs.map(async (n) => {
@@ -433,34 +438,57 @@ export async function getASNNeighbours(asn) {
 
 /**
  * Get geolocation data
+ * Tries ip-api first; falls back to ipwho.is (free, CORS-enabled) when
+ * ip-api rejects the request (403 on free HTTPS plans or browser CORS).
  * @param {string} ip - IP address
- * @returns {Promise<object>} - Geolocation data
+ * @returns {Promise<object|null>} - Geolocation data
  */
 export async function getGeolocation(ip) {
+  // Primary: ip-api
   try {
     const data = await fetchWithTimeout(`${API_ENDPOINTS.IP_API}/${ip}?fields=status,message,country,countryCode,region,regionName,city,lat,lon,timezone,isp,org,as`);
 
-    if (data.status !== 'success') {
-      console.warn('Geolocation failed:', data.message);
-      return null;
+    if (data.status === 'success') {
+      return {
+        country: data.country,
+        countryCode: data.countryCode,
+        region: data.regionName,
+        city: data.city,
+        lat: data.lat,
+        lon: data.lon,
+        timezone: data.timezone,
+        isp: data.isp,
+        org: data.org,
+        as: data.as,
+      };
     }
-
-    return {
-      country: data.country,
-      countryCode: data.countryCode,
-      region: data.regionName,
-      city: data.city,
-      lat: data.lat,
-      lon: data.lon,
-      timezone: data.timezone,
-      isp: data.isp,
-      org: data.org,
-      as: data.as,
-    };
+    console.warn('ip-api geolocation failed:', data.message);
   } catch (error) {
-    console.error('Geolocation fetch error:', error);
-    return null;
+    console.warn('ip-api geolocation error:', error.message);
   }
+
+  // Fallback: ipwho.is (free, HTTPS, CORS-friendly)
+  try {
+    const fallback = await fetchWithTimeout(`https://ipwho.is/${ip}`, 6000);
+    if (fallback && fallback.success) {
+      return {
+        country: fallback.country,
+        countryCode: fallback.country_code,
+        region: fallback.region || fallback.state,
+        city: fallback.city,
+        lat: fallback.latitude,
+        lon: fallback.longitude,
+        timezone: fallback.timezone?.id,
+        isp: fallback.connection?.isp,
+        org: fallback.connection?.org,
+        as: fallback.connection?.asn ? `AS${fallback.connection.asn}` : null,
+      };
+    }
+  } catch (error) {
+    console.warn('ipwho.is geolocation error:', error.message);
+  }
+
+  return null;
 }
 
 /**
@@ -884,13 +912,16 @@ export async function getCompleteBGPData(ip) {
   const countryCode = asOverview.countryCode || geolocation?.countryCode || null;
 
   // **STRICT LOADING POLICY:**
-  // Merge path analysis into upstreams and ensure ALL data is hydrated
+  // Merge path analysis into upstreams and ensure ALL data is hydrated.
+  // Guard against missing pathAnalysis (e.g. looking-glass timeout) so a
+  // slow API never crashes the whole search.
+  const upstreamInfo = pathAnalysis?.upstreamInfo || {};
   const upstreamsWithPathInfo = neighbours.upstreams.map(u => ({
     ...u,
-    isPrimary: pathAnalysis.upstreamInfo[u.asn]?.isPrimary || false,
-    isBackup: pathAnalysis.upstreamInfo[u.asn]?.isBackup || false,
-    isTier1: pathAnalysis.upstreamInfo[u.asn]?.isTier1 || false,
-    rank: pathAnalysis.upstreamInfo[u.asn]?.rank || 999,
+    isPrimary: upstreamInfo[u.asn]?.isPrimary || false,
+    isBackup: upstreamInfo[u.asn]?.isBackup || false,
+    isTier1: isTier1AS(u.asn), // tier-1 is a property of the AS itself, not the path
+    rank: upstreamInfo[u.asn]?.rank || 999,
     // Name and countryCode are ALREADY fetched in getASNNeighbours
     // This ensures 100% hydrated data before rendering
   }));

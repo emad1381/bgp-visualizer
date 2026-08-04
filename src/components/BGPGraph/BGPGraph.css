@@ -89,12 +89,11 @@
    ============================================ */
 .node-ip {
     background: var(--gradient-primary);
-    padding: 3px;
+    padding: 2px;
     border-radius: var(--radius-lg);
     box-shadow:
-        0 0 30px rgba(99, 102, 241, 0.4),
-        0 0 60px rgba(139, 92, 246, 0.2);
-    animation: pulse-glow 3s ease-in-out infinite;
+        0 0 24px rgba(45, 212, 191, 0.25),
+        0 0 48px rgba(34, 211, 238, 0.1);
 }
 
 .node-ip-inner {
@@ -115,7 +114,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #04120f;
     flex-shrink: 0;
 }
 
@@ -168,11 +167,12 @@
 
 .node-as-primary {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 20px rgba(45, 212, 191, 0.2);
 }
 
 .node-as-primary .node-as-header {
     background: var(--gradient-primary);
+    color: #04120f;
 }
 
 .node-as-header {
@@ -225,8 +225,8 @@
    Upstream Node Styles
    ============================================ */
 .node-upstream {
-    background: linear-gradient(135deg, rgba(34, 211, 238, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
-    border: 1px solid rgba(34, 211, 238, 0.3);
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.08) 0%, rgba(45, 212, 191, 0.06) 100%);
+    border: 1px solid rgba(34, 211, 238, 0.25);
     border-radius: var(--radius-md);
     padding: 2px;
     min-width: 220px;
@@ -256,7 +256,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #04120f;
     flex-shrink: 0;
 }
 
@@ -471,7 +471,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #1a0408;
 }
 
 .node-geo-content {
@@ -538,7 +538,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #03140c;
 }
 
 .node-prefix-content {

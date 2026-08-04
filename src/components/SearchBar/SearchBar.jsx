@@ -5,7 +5,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Search, X, Clock, ArrowRight, Loader2 } from 'lucide-react';
-import { validateIP } from '../../services/bgpService';
 import './SearchBar.css';
 
 // Sample IPs for quick access
@@ -31,11 +30,13 @@ export default function SearchBar({ onSearch, isLoading }) {
     const dropdownRef = useRef(null);
 
     // Load history from localStorage
+    // (intentional: read once on mount)
     useEffect(() => {
         const savedHistory = localStorage.getItem('bgp-search-history');
         if (savedHistory) {
             setHistory(JSON.parse(savedHistory));
         }
+         
     }, []);
 
     // Save to history
