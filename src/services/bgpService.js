@@ -157,15 +157,65 @@ const fetchASName = async (asn) => {
  */
 export function validateIP(ip) {
   const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-  const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$|^(?:[0-9a-fA-F]{1,4}:){0,6}::(?:[0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4}$/;
 
   if (ipv4Regex.test(ip)) {
     return { valid: true, type: 'ipv4' };
   }
-  if (ipv6Regex.test(ip)) {
+  if (isValidIPv6(ip)) {
     return { valid: true, type: 'ipv6' };
   }
   return { valid: false, type: null };
+}
+
+/**
+ * Validate an IPv6 address using a structural parse (handles "::"
+ * compression anywhere, full form, and embedded IPv4).
+ * @param {string} ip - Address to check
+ * @returns {boolean}
+ */
+function isValidIPv6(ip) {
+  if (!ip || typeof ip !== 'string') return false;
+  let addr = ip.trim();
+  if (addr.length === 0 || addr.length > 45) return false;
+
+  const H = (s) => /^[0-9a-fA-F]{1,4}$/.test(s);       // 1-4 hex digits
+  const V4 = (s) => /^(\d{1,3}\.){3}\d{1,3}$/.test(s) && s.split('.').every(o => Number(o) <= 255);
+
+  // Count "::" — at most one allowed
+  const dbl = addr.split('::');
+  if (dbl.length > 2) return false;
+
+  if (dbl.length === 2) {
+    const left = dbl[0], right = dbl[1];
+    // A side of "::" may be empty ("::1", "2001:db8::") or end with a
+    // single colon in the special "last group compressed" forms, but
+    // never contain "::" itself (already ensured by split).
+    if (left.includes('::') || right.includes('::')) return false;
+    // Reject stray colons that would create empty groups ("2001:::1").
+    // The "::" split already consumed one colon per side; any OTHER
+    // leading/trailing colon on a non-empty side means an empty group.
+    const sideValid = (s) => {
+      if (s === '') return true;             // the "::" side itself
+      if (s.startsWith(':') || s.endsWith(':')) return false; // ":::x" or "x:::"
+      return s.split(':').every(Boolean);    // no empty groups inside
+    };
+    if (!sideValid(left) || !sideValid(right)) return false;
+    const L = left.replace(/^:|:$/g, '');
+    const R = right.replace(/^:|:$/g, '');
+    // Embedded IPv4 occupies one group
+    let lParts = L ? L.split(':') : [];
+    let rParts = R ? R.split(':') : [];
+    if (lParts.length && V4(lParts[lParts.length - 1])) lParts.pop();
+    if (rParts.length && V4(rParts[rParts.length - 1])) rParts.pop();
+    if (lParts.length + rParts.length >= 8) return false; // too many groups
+    return lParts.every(H) && rParts.every(H);
+  }
+
+  // No "::" — full form must have exactly 8 groups
+  const parts = addr.split(':');
+  if (parts.length !== 8) return false;
+  if (V4(parts[parts.length - 1])) parts.pop();
+  return parts.every(H);
 }
 
 /**
@@ -330,19 +380,6 @@ export async function fetchASUpstreams(asn) {
     console.error(`Error fetching upstreams for AS${asn}:`, error);
     return [];
   }
-}
-
-/**
- * Try to extract a 2-letter country code from an AS holder name.
- * RIPE-region holders follow "NAME-XX" convention (e.g. ARVANCLOUD-CDN-IR).
- * @param {string} holder - AS holder name
- * @returns {string|null} - ISO country code or null
- */
-function countryFromHolder(holder) {
-  if (!holder) return null;
-  // Matches trailing "-XX" (exactly 2 uppercase letters after a dash)
-  const m = holder.match(/-([A-Z]{2})$/);
-  return m ? m[1] : null;
 }
 
 // Simple in-memory cache for resolved ASN -> country (avoids re-fetching)
